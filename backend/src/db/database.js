@@ -2,9 +2,16 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const dbDir = path.resolve(__dirname, '../../data');
+const dbDir = process.env.VERCEL
+  ? path.join('/tmp', 'billing_app_data')
+  : path.resolve(__dirname, '../../data');
+
 if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+  } catch (e) {
+    // Ignore error in serverless context if path is read-only
+  }
 }
 
 const dbPath = path.join(dbDir, 'billing_app.db');

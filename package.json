@@ -5,8 +5,8 @@
   "main": "backend/src/server.js",
   "scripts": {
     "server": "node backend/src/server.js",
-    "client": "npm.cmd --prefix frontend run dev",
-    "build": "npm.cmd --prefix frontend run build",
+    "client": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
     "seed": "node backend/src/db/seed.js",
     "start": "node backend/src/server.js"
   },
