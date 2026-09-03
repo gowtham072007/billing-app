@@ -41,8 +41,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/settings', require('./routes/settings'));
 
 // Serve Frontend in Production if built
-const rootDist = path.resolve(__dirname, '../../dist');
-const frontendDist = fs.existsSync(rootDist) ? rootDist : path.resolve(__dirname, '../../frontend/dist');
+const frontendDist = path.resolve(__dirname, '../../frontend/dist');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get('*', (req, res, next) => {

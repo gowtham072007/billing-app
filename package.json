@@ -4,11 +4,12 @@
   "description": "Production-ready Billing and Order Management Web Application with 4-inch Thermal Receipt Printing",
   "main": "backend/src/server.js",
   "scripts": {
+    "start": "node backend/src/server.js",
     "server": "node backend/src/server.js",
     "client": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend install && npm --prefix frontend run build",
     "seed": "node backend/src/db/seed.js",
-    "start": "node backend/src/server.js"
+    "render-build": "npm install && npm --prefix frontend install && npm --prefix frontend run build"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -17,5 +18,8 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "sql.js": "^1.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
