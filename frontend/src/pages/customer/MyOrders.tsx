@@ -10,18 +10,26 @@ import {
   ArrowRight,
   RefreshCw,
   Phone,
+  Printer,
+  FileText,
   AlertCircle,
 } from 'lucide-react';
-import { Order, OrderItem, OrderStatus } from '../../types';
+import { Order, OrderItem, OrderStatus, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
+import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModal';
 
 export const MyOrders: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const { settings } = useSettings();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Thermal Receipt Modal
+  const [selectedReceiptBill, setSelectedReceiptBill] = useState<Bill | null>(null);
+  const [selectedReceiptItems, setSelectedReceiptItems] = useState<BillItem[]>([]);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
 
   const fetchOrders = async () => {
     try {
@@ -48,6 +56,17 @@ export const MyOrders: React.FC = () => {
       setIsLoading(false);
     }
   }, [isAuthenticated]);
+
+  const handlePrintReceipt = async (orderId: number) => {
+    try {
+      const res = await api.get<{ bill: Bill; items: BillItem[] }>(`/orders/${orderId}/receipt`);
+      setSelectedReceiptBill(res.bill);
+      setSelectedReceiptItems(res.items);
+      setIsReceiptModalOpen(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to load bill receipt');
+    }
+  };
 
   const handleCancelOrder = async (orderId: number) => {
     if (!window.confirm('Are you sure you want to cancel this order?')) return;
@@ -110,7 +129,7 @@ export const MyOrders: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">My Orders & Tracking</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Live real-time order tracking and store fulfillment updates
+            Live real-time order tracking, store fulfillment updates & thermal bill printing
           </p>
         </div>
 
@@ -145,56 +164,67 @@ export const MyOrders: React.FC = () => {
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden"
+                className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden transition-all hover:border-slate-300"
               >
                 {/* Order Top Bar */}
                 <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center font-black">
-                      <Store className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-extrabold text-slate-900 text-base">
-                          #{order.order_number}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-slate-900 text-base">
+                        #{order.order_number}
+                      </span>
+                      {isCancelled ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-100 text-rose-700">
+                          Cancelled
                         </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(order.created_at).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
+                      ) : order.status === 'completed' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-900 text-white">
+                          Completed & Billed
                         </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {order.item_count} items • Total:{' '}
-                        <strong className="text-slate-900 font-mono">₹{order.total_amount}</strong>
-                      </p>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-brand-100 text-brand-700 animate-pulse">
+                          In Progress ({order.status})
+                        </span>
+                      )}
                     </div>
+                    <p className="text-xs text-slate-400">
+                      Placed on {new Date(order.created_at).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
                   </div>
 
-                  {/* Cancel Button if Pending */}
-                  {order.status === 'pending' && (
+                  <div className="flex items-center gap-3">
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Grand Total</span>
+                      <span className="text-xl font-black font-mono text-slate-900">
+                        ₹{order.total_amount}
+                      </span>
+                    </div>
+
                     <button
-                      onClick={() => handleCancelOrder(order.id)}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-colors self-start sm:self-auto"
+                      onClick={() => handlePrintReceipt(order.id)}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                      title="Print 4-inch Thermal Bill"
                     >
-                      Cancel Order
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print Bill (ரசீது)</span>
                     </button>
-                  )}
+                  </div>
                 </div>
 
-                {/* Live Animated Status Timeline */}
-                <div className="p-5 border-b border-slate-100">
+                {/* Live Progress Bar or Cancellation Notice */}
+                <div className="p-5">
                   {isCancelled ? (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-700 text-xs">
+                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center gap-3 text-rose-700 text-xs">
                       <Ban className="w-5 h-5 shrink-0" />
-                      <div>
-                        <p className="font-bold">This order was cancelled</p>
-                        <p className="text-[11px] text-rose-600">
-                          Please contact the store if you have questions: {settings.shop_phone}
-                        </p>
-                      </div>
+                      <p className="font-semibold">
+                        This order was cancelled. If you have any questions, please contact the shop counter.
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -212,7 +242,7 @@ export const MyOrders: React.FC = () => {
                               key={step.label}
                               className={`p-3 rounded-2xl border text-center space-y-1 transition-all ${
                                 isCurrent
-                                  ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/20'
+                                    ? 'border-brand-500 bg-brand-50/60 ring-2 ring-brand-500/20'
                                   : isDone
                                   ? 'border-slate-200 bg-slate-50 text-slate-700'
                                   : 'border-slate-100 bg-white text-slate-400 opacity-60'
@@ -242,7 +272,7 @@ export const MyOrders: React.FC = () => {
                 </div>
 
                 {/* Items Summary & Delivery Address */}
-                <div className="p-5 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div className="p-5 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs border-t border-slate-100">
                   <div className="space-y-1">
                     <p className="font-semibold text-slate-700">Items Ordered:</p>
                     <p className="text-slate-600">{order.items_summary}</p>
@@ -253,9 +283,23 @@ export const MyOrders: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold">Store Phone</p>
-                    <p className="font-bold text-slate-900 font-mono">{settings.shop_phone}</p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handlePrintReceipt(order.id)}
+                      className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>View Receipt (ரசீது)</span>
+                    </button>
+
+                    {order.status === 'pending' && (
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition-colors"
+                      >
+                        Cancel Order
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -263,6 +307,15 @@ export const MyOrders: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* Thermal Receipt Print Modal */}
+      <ThermalReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        bill={selectedReceiptBill}
+        items={selectedReceiptItems}
+        settings={settings}
+      />
     </div>
   );
 };

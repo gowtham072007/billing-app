@@ -60,6 +60,74 @@ router.get('/', authenticateToken, (req, res, next) => {
   }
 });
 
+// GET /api/orders/:id/receipt (Printable bill receipt representation for customer orders)
+router.get('/:id/receipt', authenticateToken, (req, res, next) => {
+  try {
+    const id = req.params.id;
+
+    const order = db.prepare(`
+      SELECT 
+        o.id, o.order_number, o.customer_id, o.customer_name, o.customer_phone,
+        o.delivery_address, o.notes, o.subtotal, o.tax, o.total_amount,
+        o.status, o.created_at, o.updated_at
+      FROM orders o
+      WHERE o.id = ?
+    `).get(id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    // Role check: customer can only view own order
+    if (req.user.role === 'customer') {
+      const cust = db.prepare('SELECT id FROM customers WHERE user_id = ?').get(req.user.id);
+      if (!cust || order.customer_id !== cust.id) {
+        return res.status(403).json({ error: 'Access denied to this order.' });
+      }
+    }
+
+    // Check if an official bill was generated from this order
+    const linkedBill = db.prepare('SELECT * FROM bills WHERE order_id = ?').get(order.id);
+
+    const items = db.prepare(`
+      SELECT 
+        oi.id, oi.product_id, oi.product_name, 
+        COALESCE(NULLIF(oi.product_name_tamil, ''), p.name_tamil, oi.product_name) as product_name_tamil,
+        oi.quantity, oi.unit, oi.price, oi.total,
+        p.sku
+      FROM order_items oi
+      LEFT JOIN products p ON p.id = oi.product_id
+      WHERE oi.order_id = ?
+    `).all(order.id);
+
+    const settingsRows = db.prepare('SELECT key, value FROM settings').all();
+    const settings = {};
+    settingsRows.forEach(row => { settings[row.key] = row.value; });
+
+    // Format as Bill object for ThermalReceipt rendering
+    const receiptBill = linkedBill || {
+      id: order.id,
+      bill_number: order.order_number,
+      customer_id: order.customer_id,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      subtotal: order.subtotal,
+      discount: 0,
+      discount_type: 'flat',
+      tax: order.tax || 0,
+      tax_percentage: 0,
+      grand_total: order.total_amount,
+      payment_method: order.status === 'completed' ? 'PAID / COMPLETED' : 'CUSTOMER ORDER',
+      payment_reference: order.delivery_address ? `Delivery: ${order.delivery_address}` : 'Store Pickup',
+      created_at: order.created_at
+    };
+
+    res.json({ bill: receiptBill, items, settings });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/orders/:id
 router.get('/:id', authenticateToken, (req, res, next) => {
   try {
@@ -243,8 +311,8 @@ router.patch('/:id/status', authenticateToken, requireAdmin, (req, res, next) =>
   }
 });
 
-// POST /api/orders/:id/fulfill (Admin converts Order to POS Bill & Decrements Stock)
-router.post('/:id/fulfill', authenticateToken, requireAdmin, (req, res, next) => {
+// Fulfill Order logic handler
+function fulfillOrderHandler(req, res, next) {
   try {
     const orderId = req.params.id;
     const { payment_method = 'cash', payment_reference } = req.body;
@@ -255,7 +323,18 @@ router.post('/:id/fulfill', authenticateToken, requireAdmin, (req, res, next) =>
     }
 
     if (order.status === 'completed') {
-      return res.status(400).json({ error: 'Order has already been fulfilled and completed.' });
+      // Return existing linked bill if already completed
+      const existingBill = db.prepare('SELECT * FROM bills WHERE order_id = ?').get(order.id);
+      if (existingBill) {
+        const items = db.prepare('SELECT * FROM bill_items WHERE bill_id = ?').all(existingBill.id);
+        return res.json({
+          message: 'Order was already completed.',
+          bill: existingBill,
+          bill_id: existingBill.id,
+          bill_number: existingBill.bill_number,
+          items
+        });
+      }
     }
 
     const items = db.prepare(`
@@ -397,12 +476,19 @@ router.post('/:id/fulfill', authenticateToken, requireAdmin, (req, res, next) =>
     res.json({
       message: `Order #${order.order_number} successfully fulfilled into Bill #${result.billNumber}!`,
       bill: createdBill,
+      bill_id: result.billId,
+      bill_number: result.billNumber,
+      grand_total: createdBill.grand_total,
       items: createdItems,
       settings
     });
   } catch (err) {
     next(err);
   }
-});
+}
+
+// POST /api/orders/:id/fulfill and POST /api/orders/:id/convert-to-bill
+router.post('/:id/fulfill', authenticateToken, requireAdmin, fulfillOrderHandler);
+router.post('/:id/convert-to-bill', authenticateToken, requireAdmin, fulfillOrderHandler);
 
 module.exports = router;

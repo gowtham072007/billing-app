@@ -31,7 +31,7 @@ export const Orders: React.FC = () => {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState<boolean>(false);
 
-  // Convert to Bill & Print Modal
+  // Print Receipt Modal
   const [completedBill, setCompletedBill] = useState<Bill | null>(null);
   const [completedBillItems, setCompletedBillItems] = useState<BillItem[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
@@ -80,6 +80,17 @@ export const Orders: React.FC = () => {
       setIsDetailsModalOpen(true);
     } catch (err: any) {
       alert('Failed to load order details');
+    }
+  };
+
+  const handlePrintOrderReceipt = async (orderId: number) => {
+    try {
+      const res = await api.get<{ bill: Bill; items: BillItem[] }>(`/orders/${orderId}/receipt`);
+      setCompletedBill(res.bill);
+      setCompletedBillItems(res.items);
+      setIsReceiptModalOpen(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to load order bill receipt');
     }
   };
 
@@ -140,39 +151,39 @@ export const Orders: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Customer Orders</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Incoming orders from online customer dashboard with instant status updates
+            Real-time incoming customer orders, fulfillment lifecycle & thermal bill printing
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={fetchOrders}
-            className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-1.5 shadow-xs transition-colors"
+            className="p-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl transition-colors shadow-xs"
+            title="Refresh Orders"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh Queue</span>
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Status Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
         {[
-          { id: 'all', label: 'All Orders' },
-          { id: 'pending', label: 'Pending' },
-          { id: 'accepted', label: 'Accepted' },
-          { id: 'preparing', label: 'Preparing' },
-          { id: 'ready', label: 'Ready' },
-          { id: 'completed', label: 'Completed' },
-          { id: 'cancelled', label: 'Cancelled' },
+          { key: 'all', label: 'All Orders' },
+          { key: 'pending', label: 'Pending' },
+          { key: 'accepted', label: 'Accepted' },
+          { key: 'preparing', label: 'Preparing' },
+          { key: 'ready', label: 'Ready for Pickup' },
+          { key: 'completed', label: 'Completed' },
+          { key: 'cancelled', label: 'Cancelled' },
         ].map(tab => (
           <button
-            key={tab.id}
-            onClick={() => setStatusFilter(tab.id)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              statusFilter === tab.id
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              statusFilter === tab.key
                 ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                : 'bg-white text-slate-600 hover:bg-slate-100'
             }`}
           >
             {tab.label}
@@ -180,30 +191,28 @@ export const Orders: React.FC = () => {
         ))}
       </div>
 
-      {/* Orders List / Cards */}
+      {/* Orders Grid/List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {orders.length === 0 ? (
-          <div className="col-span-full bg-white rounded-2xl border border-dashed border-slate-200 py-16 text-center">
-            <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm font-bold text-slate-700">No orders found in this status</p>
-            <p className="text-xs text-slate-400 mt-1">
-              New orders placed by customers will appear here in real-time.
-            </p>
+          <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-dashed border-slate-200 space-y-3">
+            <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto" />
+            <h3 className="text-sm font-bold text-slate-800">No customer orders found</h3>
+            <p className="text-xs text-slate-400">Orders placed by customers will appear here in real-time</p>
           </div>
         ) : (
           orders.map(o => (
             <div
               key={o.id}
-              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all p-5 flex flex-col justify-between"
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex flex-col justify-between hover:border-slate-300 transition-all"
             >
               <div>
-                {/* Header: Order # & Status */}
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                {/* Header: Order No & Status */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
-                    <span className="font-mono text-sm font-extrabold text-slate-900">
-                      #{o.order_number}
+                    <span className="font-mono font-bold text-slate-900 text-sm">
+                      {o.order_number}
                     </span>
-                    <span className="text-[10px] text-slate-400 block font-mono">
+                    <span className="text-[10px] text-slate-400 block">
                       {new Date(o.created_at).toLocaleTimeString('en-IN', {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -211,31 +220,33 @@ export const Orders: React.FC = () => {
                       })}
                     </span>
                   </div>
-                  {getStatusBadge(o.status)}
+                  <div>{getStatusBadge(o.status)}</div>
                 </div>
 
                 {/* Customer Details */}
                 <div className="py-3 space-y-1 text-xs">
-                  <p className="font-bold text-slate-900 text-sm">{o.customer_name}</p>
-                  <p className="text-slate-500 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-slate-400" />
-                    {o.customer_phone}
-                  </p>
+                  <p className="font-bold text-slate-900">{o.customer_name}</p>
+                  {o.customer_phone && (
+                    <p className="text-slate-500 font-mono text-[11px] flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-slate-400" />
+                      <span>{o.customer_phone}</span>
+                    </p>
+                  )}
                   {o.delivery_address && (
-                    <p className="text-slate-500 flex items-start gap-1 line-clamp-1">
-                      <MapPin className="w-3 h-3 text-slate-400 mt-0.5 shrink-0" />
+                    <p className="text-slate-500 text-[11px] flex items-start gap-1 pt-1 line-clamp-2">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
                       <span>{o.delivery_address}</span>
                     </p>
                   )}
                 </div>
 
                 {/* Items Summary */}
-                <div className="p-2.5 bg-slate-50 rounded-xl text-xs text-slate-700 border border-slate-100">
-                  <p className="font-semibold text-slate-500 text-[10px] uppercase mb-1">
+                <div className="p-2.5 bg-slate-50 rounded-xl text-xs text-slate-700">
+                  <p className="font-semibold text-slate-800 mb-0.5">
                     {o.item_count} Items:
                   </p>
-                  <p className="line-clamp-2 leading-relaxed text-slate-800 font-medium">
-                    {o.items_summary || 'Order Items'}
+                  <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+                    {o.items_summary}
                   </p>
                 </div>
 
@@ -255,7 +266,7 @@ export const Orders: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Status Pipeline Buttons */}
+                {/* Status Pipeline & Print Buttons */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => handleViewOrder(o.id)}
@@ -264,19 +275,28 @@ export const Orders: React.FC = () => {
                     View Details
                   </button>
 
+                  <button
+                    onClick={() => handlePrintOrderReceipt(o.id)}
+                    className="py-1.5 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                    title="Print 4-inch Thermal Receipt"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Bill</span>
+                  </button>
+
                   {o.status === 'pending' && (
                     <button
                       onClick={() => handleUpdateStatus(o.id, 'accepted')}
-                      className="flex-1 py-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-colors text-center"
+                      className="w-full py-1.5 px-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-colors text-center"
                     >
-                      Accept
+                      Accept Order
                     </button>
                   )}
 
                   {o.status === 'accepted' && (
                     <button
                       onClick={() => handleUpdateStatus(o.id, 'preparing')}
-                      className="flex-1 py-1.5 px-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors text-center"
+                      className="w-full py-1.5 px-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors text-center"
                     >
                       Mark Preparing
                     </button>
@@ -285,9 +305,9 @@ export const Orders: React.FC = () => {
                   {o.status === 'preparing' && (
                     <button
                       onClick={() => handleUpdateStatus(o.id, 'ready')}
-                      className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors text-center"
+                      className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors text-center"
                     >
-                      Mark Ready
+                      Mark Ready for Pickup
                     </button>
                   )}
 
@@ -339,7 +359,7 @@ export const Orders: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
-                    <th className="py-2.5 px-3">Item</th>
+                    <th className="py-2.5 px-3">Item / பொருள்</th>
                     <th className="py-2.5 px-3 text-center">Qty</th>
                     <th className="py-2.5 px-3 text-right">Price</th>
                     <th className="py-2.5 px-3 text-right">Total</th>
@@ -349,7 +369,12 @@ export const Orders: React.FC = () => {
                   {orderItems.map((item, idx) => (
                     <tr key={idx}>
                       <td className="py-2.5 px-3">
-                        <p className="font-bold text-slate-900">{item.product_name}</p>
+                        <p className="font-bold text-slate-900">
+                          {item.product_name_tamil || item.product_name}
+                        </p>
+                        {item.product_name_tamil && (
+                          <span className="text-[10px] text-slate-400 block">{item.product_name}</span>
+                        )}
                         <span className="text-[10px] text-slate-400 font-mono">Unit: {item.unit}</span>
                       </td>
                       <td className="py-2.5 px-3 text-center font-mono font-bold">
@@ -375,14 +400,13 @@ export const Orders: React.FC = () => {
 
             {/* Action Triggers in Modal */}
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-              {selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'completed' && (
-                <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'cancelled')}
-                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold"
-                >
-                  Cancel Order
-                </button>
-              )}
+              <button
+                onClick={() => handlePrintOrderReceipt(selectedOrder.id)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Bill (ரசீது அச்சிடு)</span>
+              </button>
 
               <div className="flex items-center gap-2 ml-auto">
                 <button
