@@ -66,6 +66,8 @@ export interface OrderItem {
   quantity: number;
   unit: string;
   price: number;
+  w_rate?: number;
+  c_rate?: number;
   rate_type?: 'c_rate' | 'w_rate';
   total: number;
   image?: string | null;

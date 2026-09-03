@@ -60,10 +60,11 @@ router.get('/', authenticateToken, (req, res, next) => {
   }
 });
 
-// GET /api/orders/:id/receipt (Printable bill receipt representation for customer orders)
+// GET /api/orders/:id/receipt (Printable bill receipt with W-Rate / C-Rate support)
 router.get('/:id/receipt', authenticateToken, (req, res, next) => {
   try {
     const id = req.params.id;
+    const requestedRateType = req.query.rate_type === 'w_rate' ? 'w_rate' : 'c_rate';
 
     const order = db.prepare(`
       SELECT 
@@ -89,16 +90,58 @@ router.get('/:id/receipt', authenticateToken, (req, res, next) => {
     // Check if an official bill was generated from this order
     const linkedBill = db.prepare('SELECT * FROM bills WHERE order_id = ?').get(order.id);
 
-    const items = db.prepare(`
-      SELECT 
-        oi.id, oi.product_id, oi.product_name, 
-        COALESCE(NULLIF(oi.product_name_tamil, ''), p.name_tamil, oi.product_name) as product_name_tamil,
-        oi.quantity, oi.unit, oi.price, oi.total,
-        p.sku
-      FROM order_items oi
-      LEFT JOIN products p ON p.id = oi.product_id
-      WHERE oi.order_id = ?
-    `).all(order.id);
+    let items = [];
+    let subtotal = 0;
+
+    if (linkedBill) {
+      items = db.prepare(`
+        SELECT 
+          bi.id, bi.product_id, bi.product_name, 
+          COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
+          bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+        FROM bill_items bi
+        LEFT JOIN products p ON p.id = bi.product_id
+        WHERE bi.bill_id = ?
+      `).all(linkedBill.id);
+      subtotal = linkedBill.subtotal;
+    } else {
+      const rawItems = db.prepare(`
+        SELECT 
+          oi.id, oi.product_id, oi.product_name, 
+          COALESCE(NULLIF(oi.product_name_tamil, ''), p.name_tamil, oi.product_name) as product_name_tamil,
+          oi.quantity, oi.unit, oi.price, oi.total,
+          p.w_rate, p.c_rate, p.selling_price, p.sku
+        FROM order_items oi
+        LEFT JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ?
+      `).all(order.id);
+
+      items = rawItems.map(item => {
+        let price = Number(item.price);
+        if (requestedRateType === 'w_rate') {
+          price = Number(item.w_rate) > 0 ? Number(item.w_rate) : Number(item.selling_price || item.price);
+        } else if (requestedRateType === 'c_rate') {
+          price = Number(item.c_rate) > 0 ? Number(item.c_rate) : Number(item.selling_price || item.price);
+        }
+        const lineTotal = price * Number(item.quantity);
+        subtotal += lineTotal;
+
+        return {
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          product_name_tamil: item.product_name_tamil,
+          quantity: item.quantity,
+          unit: item.unit,
+          price,
+          rate_type: requestedRateType,
+          total: lineTotal,
+          sku: item.sku
+        };
+      });
+    }
+
+    const grandTotal = Math.round(subtotal);
 
     const settingsRows = db.prepare('SELECT key, value FROM settings').all();
     const settings = {};
@@ -111,18 +154,18 @@ router.get('/:id/receipt', authenticateToken, (req, res, next) => {
       customer_id: order.customer_id,
       customer_name: order.customer_name,
       customer_phone: order.customer_phone,
-      subtotal: order.subtotal,
+      subtotal,
       discount: 0,
       discount_type: 'flat',
       tax: order.tax || 0,
       tax_percentage: 0,
-      grand_total: order.total_amount,
-      payment_method: order.status === 'completed' ? 'PAID / COMPLETED' : 'CUSTOMER ORDER',
+      grand_total: grandTotal,
+      payment_method: order.status === 'completed' ? 'PAID / COMPLETED' : (requestedRateType === 'w_rate' ? 'WHOLESALE (W-RATE)' : 'RETAIL (C-RATE)'),
       payment_reference: order.delivery_address ? `Delivery: ${order.delivery_address}` : 'Store Pickup',
       created_at: order.created_at
     };
 
-    res.json({ bill: receiptBill, items, settings });
+    res.json({ bill: receiptBill, items, settings, rate_type: requestedRateType });
   } catch (err) {
     next(err);
   }
@@ -159,6 +202,7 @@ router.get('/:id', authenticateToken, (req, res, next) => {
         oi.id, oi.product_id, oi.product_name, 
         COALESCE(NULLIF(oi.product_name_tamil, ''), p.name_tamil, oi.product_name) as product_name_tamil,
         oi.quantity, oi.unit, oi.price, oi.total,
+        p.w_rate, p.c_rate, p.selling_price,
         p.image, p.sku, p.stock as available_stock
       FROM order_items oi
       LEFT JOIN products p ON p.id = oi.product_id
@@ -196,7 +240,7 @@ router.post('/', authenticateToken, (req, res, next) => {
     const validatedItems = [];
 
     for (const item of items) {
-      const prod = db.prepare('SELECT id, name, name_tamil, selling_price, stock, unit, status FROM products WHERE id = ?').get(item.product_id);
+      const prod = db.prepare('SELECT id, name, name_tamil, selling_price, w_rate, c_rate, stock, unit, status FROM products WHERE id = ?').get(item.product_id);
       if (!prod || prod.status !== 'active') {
         return res.status(400).json({ error: `Product "${item.product_name || 'Selected item'}" is currently unavailable.` });
       }
@@ -212,7 +256,8 @@ router.post('/', authenticateToken, (req, res, next) => {
         });
       }
 
-      const lineTotal = prod.selling_price * qty;
+      const price = Number(prod.c_rate || prod.selling_price);
+      const lineTotal = price * qty;
       calculatedSubtotal += lineTotal;
 
       validatedItems.push({
@@ -221,7 +266,7 @@ router.post('/', authenticateToken, (req, res, next) => {
         product_name_tamil: prod.name_tamil || null,
         quantity: qty,
         unit: prod.unit,
-        price: prod.selling_price,
+        price,
         total: lineTotal
       });
     }
@@ -311,11 +356,16 @@ router.patch('/:id/status', authenticateToken, requireAdmin, (req, res, next) =>
   }
 });
 
-// Fulfill Order logic handler
+// Fulfill Order logic handler with W-Rate and C-Rate support
 function fulfillOrderHandler(req, res, next) {
   try {
     const orderId = req.params.id;
-    const { payment_method = 'cash', payment_reference } = req.body;
+    const {
+      payment_method = 'cash',
+      payment_reference,
+      rate_type = 'c_rate',
+      item_rates = {}
+    } = req.body;
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order) {
@@ -323,10 +373,18 @@ function fulfillOrderHandler(req, res, next) {
     }
 
     if (order.status === 'completed') {
-      // Return existing linked bill if already completed
       const existingBill = db.prepare('SELECT * FROM bills WHERE order_id = ?').get(order.id);
       if (existingBill) {
-        const items = db.prepare('SELECT * FROM bill_items WHERE bill_id = ?').all(existingBill.id);
+        const items = db.prepare(`
+          SELECT 
+            bi.id, bi.product_id, bi.product_name,
+            COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
+            bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+          FROM bill_items bi
+          LEFT JOIN products p ON p.id = bi.product_id
+          WHERE bi.bill_id = ?
+        `).all(existingBill.id);
+
         return res.json({
           message: 'Order was already completed.',
           bill: existingBill,
@@ -338,7 +396,7 @@ function fulfillOrderHandler(req, res, next) {
     }
 
     const items = db.prepare(`
-      SELECT oi.*, p.name_tamil, p.stock as current_stock, p.sku, p.status as prod_status
+      SELECT oi.*, p.name_tamil, p.stock as current_stock, p.sku, p.w_rate, p.c_rate, p.selling_price, p.status as prod_status
       FROM order_items oi
       LEFT JOIN products p ON p.id = oi.product_id
       WHERE oi.order_id = ?
@@ -352,6 +410,38 @@ function fulfillOrderHandler(req, res, next) {
         });
       }
     }
+
+    // Calculate dynamic pricing based on chosen rate_type
+    let calculatedSubtotal = 0;
+    const preparedBillItems = [];
+
+    for (const item of items) {
+      let selectedRateType = rate_type === 'w_rate' ? 'w_rate' : 'c_rate';
+      let itemPrice = selectedRateType === 'w_rate' 
+        ? (Number(item.w_rate) > 0 ? Number(item.w_rate) : Number(item.selling_price || item.price))
+        : (Number(item.c_rate) > 0 ? Number(item.c_rate) : Number(item.selling_price || item.price));
+
+      if (item_rates[item.product_id]) {
+        if (item_rates[item.product_id].rate_type) {
+          selectedRateType = item_rates[item.product_id].rate_type;
+        }
+        if (item_rates[item.product_id].price !== undefined) {
+          itemPrice = Number(item_rates[item.product_id].price);
+        }
+      }
+
+      const lineTotal = itemPrice * Number(item.quantity);
+      calculatedSubtotal += lineTotal;
+
+      preparedBillItems.push({
+        ...item,
+        price: itemPrice,
+        rate_type: selectedRateType,
+        total: lineTotal
+      });
+    }
+
+    const grandTotal = Math.round(calculatedSubtotal);
 
     // Generate Invoice Number
     const now = new Date();
@@ -389,20 +479,20 @@ function fulfillOrderHandler(req, res, next) {
         order.customer_id,
         order.customer_name,
         order.customer_phone,
-        order.subtotal,
-        order.total_amount,
+        calculatedSubtotal,
+        grandTotal,
         payment_method,
-        payment_reference || `Fulfilled from Order #${order.order_number}`,
+        payment_reference || `Fulfilled from Order #${order.order_number} (${rate_type.toUpperCase()})`,
         order.id
       );
 
       const billId = billRes.lastInsertRowid;
 
-      // 2. Insert Bill Items & Decrement Stock & Add Audit
+      // 2. Insert Bill Items with W-Rate / C-Rate & Decrement Stock & Add Audit
       const billItemStmt = db.prepare(`
         INSERT INTO bill_items (
           bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity, price, rate_type, total
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'c_rate', ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const updateStockStmt = db.prepare(`
@@ -417,7 +507,7 @@ function fulfillOrderHandler(req, res, next) {
         ) VALUES (?, ?, 'ORDER_FULFILL', ?, ?, ?, ?, ?, ?)
       `);
 
-      for (const item of items) {
+      for (const item of preparedBillItems) {
         const tamilName = item.product_name_tamil || item.name_tamil || null;
         billItemStmt.run(
           billId,
@@ -428,6 +518,7 @@ function fulfillOrderHandler(req, res, next) {
           item.unit,
           item.quantity,
           item.price,
+          item.rate_type,
           item.total
         );
 
@@ -441,19 +532,19 @@ function fulfillOrderHandler(req, res, next) {
           item.current_stock,
           newStock,
           billNumber,
-          `Order #${order.order_number} -> Bill #${billNumber}`,
+          `Order #${order.order_number} (${item.rate_type.toUpperCase()}) -> Bill #${billNumber}`,
           req.user.name || 'Admin'
         );
       }
 
-      // 3. Mark Order as Completed
+      // 3. Mark Order as Completed and update total_amount
       db.prepare(`
         UPDATE orders 
-        SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+        SET status = 'completed', subtotal = ?, total_amount = ?, updated_at = CURRENT_TIMESTAMP 
         WHERE id = ?
-      `).run(order.id);
+      `).run(calculatedSubtotal, grandTotal, order.id);
 
-      return { billId, billNumber };
+      return { billId, billNumber, grandTotal };
     });
 
     const result = tx();
@@ -474,11 +565,11 @@ function fulfillOrderHandler(req, res, next) {
     settingsRows.forEach(row => { settings[row.key] = row.value; });
 
     res.json({
-      message: `Order #${order.order_number} successfully fulfilled into Bill #${result.billNumber}!`,
+      message: `Order #${order.order_number} successfully converted to Bill #${result.billNumber} with ${rate_type.toUpperCase()}!`,
       bill: createdBill,
       bill_id: result.billId,
       bill_number: result.billNumber,
-      grand_total: createdBill.grand_total,
+      grand_total: result.grandTotal,
       items: createdItems,
       settings
     });
