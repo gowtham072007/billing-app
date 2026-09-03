@@ -92,7 +92,7 @@ export const Settings: React.FC = () => {
                 required
                 value={formData.shop_name}
                 onChange={e => handleChange('shop_name', e.target.value)}
-                placeholder="e.g. Sri Krishna Supermarket"
+                placeholder="e.g. Vilmani Store"
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
               />
             </div>

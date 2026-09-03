@@ -20,7 +20,7 @@ async function seedDatabase() {
   // 1. Insert Default Settings
   const insertSetting = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
   const defaultSettings = [
-    ['shop_name', 'Sri Krishna Supermarket'],
+    ['shop_name', 'Vilmani Store'],
     ['shop_address', 'No. 42, Bazaar Main Road, Tamil Nadu - 600001'],
     ['shop_phone', '+91 98765 43210'],
     ['shop_email', 'admin@shop.com'],

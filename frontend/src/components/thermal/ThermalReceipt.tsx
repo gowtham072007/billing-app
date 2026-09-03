@@ -12,7 +12,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   items,
   settings = {},
 }) => {
-  const shopName = settings.shop_name || 'Sri Krishna Supermarket';
+  const shopName = settings.shop_name || 'Vilmani Store';
   const shopAddress = settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu';
   const shopPhone = settings.shop_phone || '+91 98765 43210';
   const shopGstin = settings.shop_gstin || '';

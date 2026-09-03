@@ -83,7 +83,7 @@ export const Login: React.FC = () => {
           <Store className="w-6 h-6" />
         </div>
         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          {settings.shop_name || 'Sri Krishna Supermarket'}
+          {settings.shop_name || 'Vilmani Store'}
         </h2>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
           {t('store_tagline')}

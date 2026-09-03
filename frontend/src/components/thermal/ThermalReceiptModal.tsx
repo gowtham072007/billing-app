@@ -30,7 +30,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   const handleCopyText = () => {
     const textReceipt = `
 ================================
-${settings?.shop_name || 'Sri Krishna Supermarket'}
+${settings?.shop_name || 'Vilmani Store'}
 ${settings?.shop_address || ''}
 Ph: ${settings?.shop_phone || ''}
 ================================

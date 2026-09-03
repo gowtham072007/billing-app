@@ -10,7 +10,7 @@ interface SettingsContextType {
 }
 
 const defaultSettings: ShopSettings = {
-  shop_name: 'Sri Krishna Supermarket',
+  shop_name: 'Vilmani Store',
   shop_address: 'No. 42, Bazaar Main Road, Near Bus Stand, Tamil Nadu - 600001',
   shop_phone: '+91 98765 43210',
   shop_email: 'contact@srikrishnastore.com',
