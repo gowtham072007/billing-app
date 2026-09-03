@@ -72,10 +72,14 @@ export const CustomerCatalog: React.FC = () => {
   const filteredProducts = products.filter(p => {
     const matchesCategory =
       selectedCategory === 'All' || p.category.toLowerCase() === selectedCategory.toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
     const matchesSearch =
-      !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      p.name.toLowerCase().includes(term) ||
+      (p.name_tamil && p.name_tamil.toLowerCase().includes(term)) ||
+      (p.sku && p.sku.toLowerCase().includes(term)) ||
+      (p.barcode && p.barcode.toLowerCase().includes(term)) ||
+      p.category.toLowerCase().includes(term);
     return matchesCategory && matchesSearch;
   });
 
@@ -106,7 +110,7 @@ export const CustomerCatalog: React.FC = () => {
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search groceries, beverages, dairy, snacks..."
+            placeholder="பொருளின் பெயர் அல்லது ஆங்கிலத்தில் தேடுங்கள் (Search in Tamil or English)..."
             className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none shadow-sm transition-all"
           />
         </div>
