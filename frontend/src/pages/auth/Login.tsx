@@ -79,8 +79,12 @@ export const Login: React.FC = () => {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30 mb-3">
-          <Store className="w-6 h-6" />
+        <div className="inline-flex items-center justify-center mb-3">
+          <img
+            src="/logo.png"
+            alt="Vilmani Store Logo"
+            className="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-2xl bg-white p-2 shadow-xl border border-slate-200/80"
+          />
         </div>
         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
           {settings.shop_name || 'Vilmani Store'}

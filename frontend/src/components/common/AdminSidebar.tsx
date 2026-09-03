@@ -56,16 +56,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/20 shrink-0">
-            <Printer className="w-5 h-5" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Vilmani Store Logo"
+            className="w-9 h-9 object-contain rounded-xl bg-white p-0.5 border border-slate-700 shadow-md shrink-0"
+          />
           <div className="overflow-hidden">
-            <h1 className="font-bold text-white text-sm leading-tight truncate">
-              {settings.shop_name || 'QuickBill POS'}
-            </h1>
-            <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              {t('nav_admin_console')}
+            <span className="font-extrabold text-white text-sm tracking-tight block truncate">
+              {settings.shop_name || 'Vilmani Store'}
+            </span>
+            <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">
+              POS Console
             </span>
           </div>
         </div>

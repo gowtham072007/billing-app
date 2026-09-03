@@ -34,12 +34,14 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo & Shop Name */}
         <Link to="/customer/products" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
-            <Store className="w-5 h-5" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Vilmani Store Logo"
+            className="w-10 h-10 object-contain rounded-xl bg-white p-0.5 border border-slate-200 shadow-sm"
+          />
           <div>
             <span className="font-bold text-slate-900 text-lg sm:text-xl tracking-tight block leading-tight">
-              {settings.shop_name || t('shop_title')}
+              {settings.shop_name || 'Vilmani Store'}
             </span>
             <span className="text-[11px] text-slate-500 font-medium hidden sm:block">
               {settings.shop_phone || '+91 98765 43210'}
