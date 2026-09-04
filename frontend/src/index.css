@@ -80,13 +80,13 @@
 /* EXACT THERMAL RECEIPT ROLL PRINT MEDIA ENGINE (80MM / 3-INCH & 58MM)     */
 /* ========================================================================= */
 @media print {
-  /* Hide all non-printable app UI elements */
-  nav, aside, footer, header, button, .no-print, .print\:hidden {
-    display: none !important;
+  /* Hide every single element in the entire web app */
+  body * {
+    visibility: hidden !important;
   }
 
-  /* Reset body, html and root to natural content height */
-  html, body, #root {
+  /* Reset body and html */
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
@@ -94,12 +94,9 @@
     width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
-    display: block !important;
   }
 
-  /* Reveal only the thermal receipt container */
+  /* Reveal ONLY the thermal receipt container and its children */
   #thermal-receipt-printable,
   #thermal-receipt-printable * {
     visibility: visible !important;
@@ -108,11 +105,13 @@
   }
 
   #thermal-receipt-printable {
-    display: block !important;
-    position: relative !important;
-    width: 76mm !important; /* Printable printable width for 80mm rolls */
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 76mm !important; /* Standard printable roll width */
     max-width: 80mm !important;
-    margin: 0 auto !important;
+    min-width: 70mm !important;
+    margin: 0 !important;
     padding: 1mm 2mm !important;
     background-color: #ffffff !important;
     font-family: "JetBrains Mono", Consolas, "Courier New", Courier, monospace, sans-serif !important;
