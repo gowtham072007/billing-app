@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { InstallAppButton } from './InstallAppButton';
 
 interface AdminSidebarProps {
   pendingOrdersCount?: number;
@@ -126,6 +127,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <Store className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="truncate">{t('nav_shop_products')}</span>
         </NavLink>
+
+        <InstallAppButton variant="sidebar" />
 
         <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between px-2">
           <div className="overflow-hidden pr-2">

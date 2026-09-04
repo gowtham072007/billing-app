@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings as SettingsIcon, Save, Printer, CheckCircle2, Store, QrCode } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { ThermalReceipt } from '../../components/thermal/ThermalReceipt';
+import { InstallAppButton } from '../../components/common/InstallAppButton';
 import { Bill, BillItem } from '../../types';
 
 export const Settings: React.FC = () => {
@@ -277,6 +278,9 @@ export const Settings: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Install Desktop & Mobile App Card */}
+          <InstallAppButton variant="card" />
         </div>
       </div>
     </div>

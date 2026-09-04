@@ -15,6 +15,7 @@ import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { InstallAppButton } from './InstallAppButton';
 
 export const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
@@ -87,8 +88,11 @@ export const Navbar: React.FC = () => {
           )}
         </nav>
 
-        {/* Right Action Icons: Language, Cart, Profile, Login */}
+        {/* Right Action Icons: Language, Install App, Cart, Profile, Login */}
         <div className="flex items-center gap-2.5">
+          {/* Install App Quick Button */}
+          <InstallAppButton variant="navbar" />
+
           {/* Language Switcher */}
           <LanguageSwitcher variant="compact" />
 
@@ -183,6 +187,9 @@ export const Navbar: React.FC = () => {
               {t('nav_admin_console')}
             </Link>
           )}
+          <div className="pt-2 border-t border-slate-100">
+            <InstallAppButton variant="navbar" className="!flex w-full justify-center py-2.5" />
+          </div>
           {isAuthenticated && (
             <button
               onClick={() => {

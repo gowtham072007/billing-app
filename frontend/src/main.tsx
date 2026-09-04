@@ -8,6 +8,15 @@ import { CartProvider } from './context/CartContext';
 import { LanguageProvider } from './context/LanguageContext';
 import './index.css';
 
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.log('Service Worker registration skipped or failed:', err);
+    });
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <BrowserRouter>

@@ -132,6 +132,17 @@ export const translations = {
     active_section: 'Active Section',
     empty_section: 'Empty',
     clear_section: 'Clear Section',
+
+    // App Installation (PWA)
+    install_app: 'Install App',
+    install_desktop_app: 'Install Desktop & Mobile App',
+    install_app_desc: 'Install QuickBill POS on your Windows PC, Mac, Android, or iPhone for instant 1-click desktop access, taskbar pinning, full screen POS, and offline reliability.',
+    install_now: 'Install Now',
+    already_installed: 'App Installed / Running Standalone',
+    install_guide: 'How to Install',
+    install_guide_windows: 'Windows / Mac (Chrome & Edge): Click "Install Now" above, or look for the Install icon (💻 ⊕) on the right side of the browser address bar.',
+    install_guide_android: 'Android (Chrome): Tap "Install Now" or open the Chrome menu (⋮) and tap "Install app" or "Add to Home screen".',
+    install_guide_ios: 'iPhone & iPad (Safari): Tap the Share button (⎋ with arrow) at the bottom, scroll down, and tap "Add to Home Screen" (➕).',
   },
 
   ta: {
@@ -264,5 +275,16 @@ export const translations = {
     active_section: 'நடப்பு பிரிவு',
     empty_section: 'காலியானது',
     clear_section: 'பிரிவை அழி',
+
+    // App Installation (PWA)
+    install_app: 'செயலியை நிறுவு',
+    install_desktop_app: 'டெஸ்க்டாப் & மொபைல் செயலியை நிறுவ',
+    install_app_desc: 'விரைவான பில்லிங் பயன்பாட்டிற்கு QuickBill POS செயலியை உங்கள் விண்டோஸ் பிசி, மேக், ஆண்ட்ராய்டு அல்லது ஐபோனில் நேரடி கணினி செயலியாக நிறுவவும்.',
+    install_now: 'இப்போதே நிறுவு (Install Now)',
+    already_installed: 'செயலி ஏற்கனவே நிறுவப்பட்டுள்ளது',
+    install_guide: 'செயலியை நிறுவும் முறை',
+    install_guide_windows: 'விண்டோஸ் / மேக் (Chrome & Edge): மேலே உள்ள "இப்போதே நிறுவு" அல்லது உலாவி முகவரிப் பட்டியில் உள்ள (💻 ⊕) ஐகானை கிளிக் செய்து "Install" செய்யவும்.',
+    install_guide_android: 'ஆண்ட்ராய்டு (Chrome): "இப்போதே நிறுவு" பொத்தானை அழுத்தவும் அல்லது குரோம் மெனுவில் (⋮) "Install app / Add to Home screen" என்பதைத் தொடவும்.',
+    install_guide_ios: 'ஐபோன் / ஐபேட் (Safari): கீழே உள்ள Share பொத்தானை அழுத்தி (⎋), பின்னர் "Add to Home Screen" (➕) என்பதைத் தேர்ந்தெடுக்கவும்.',
   },
 };
