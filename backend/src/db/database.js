@@ -2,11 +2,20 @@ const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 
-const dbDir = path.resolve(__dirname, '../../data');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+function getDbDir() {
+  if (process.env.VERCEL) return '/tmp';
+  const defaultDir = path.resolve(__dirname, '../../data');
+  try {
+    if (!fs.existsSync(defaultDir)) {
+      fs.mkdirSync(defaultDir, { recursive: true });
+    }
+    return defaultDir;
+  } catch {
+    return '/tmp';
+  }
 }
 
+const dbDir = getDbDir();
 const dbPath = path.join(dbDir, 'billing_app.db');
 
 class SqliteDbWrapper {
@@ -18,9 +27,18 @@ class SqliteDbWrapper {
   async init() {
     if (this.rawDb) return this;
 
-    const wasmBinaryPath = path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
-    const wasmBinary = fs.readFileSync(wasmBinaryPath);
-    const SQL = await initSqlJs({ wasmBinary });
+    let SQL;
+    try {
+      const wasmBinaryPath = path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+      if (fs.existsSync(wasmBinaryPath)) {
+        const wasmBinary = fs.readFileSync(wasmBinaryPath);
+        SQL = await initSqlJs({ wasmBinary });
+      } else {
+        SQL = await initSqlJs();
+      }
+    } catch {
+      SQL = await initSqlJs();
+    }
 
     if (fs.existsSync(dbPath)) {
       try {

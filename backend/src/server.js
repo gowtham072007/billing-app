@@ -21,7 +21,34 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health Check API (accessible at /health and /api/health for Render)
+let isDbInitialized = false;
+let dbInitPromise = null;
+
+async function ensureDbInitialized() {
+  if (isDbInitialized) return;
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
+      await db.init();
+      initSchema();
+      await seedDatabase();
+      isDbInitialized = true;
+    })();
+  }
+  await dbInitPromise;
+}
+
+// Middleware to guarantee DB is initialized on every incoming request (crucial for Vercel Serverless)
+app.use(async (req, res, next) => {
+  try {
+    await ensureDbInitialized();
+    next();
+  } catch (err) {
+    console.error('Database initialization error:', err);
+    res.status(500).json({ error: 'Failed to initialize database connection.' });
+  }
+});
+
+// Health Check API (accessible at /health and /api/health for Render / Vercel)
 app.get(['/health', '/api/health'], (req, res) => {
   res.status(200).json({
     status: 'ok',
@@ -86,4 +113,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { app, startServer };
+module.exports = { app, ensureDbInitialized, startServer };
