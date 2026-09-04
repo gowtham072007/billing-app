@@ -5,7 +5,7 @@ import { posSounds } from '../../utils/soundEffects';
 interface CameraBarcodeScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onScan: (barcode: string) => Promise<boolean>;
+  onScan: (barcode: string) => Promise<boolean> | boolean;
   defaultAutoClose?: boolean;
 }
 
@@ -18,6 +18,8 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const isScanningActiveRef = useRef<boolean>(false);
+  const zxingReaderRef = useRef<any>(null);
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -26,70 +28,82 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [autoCloseOnScan, setAutoCloseOnScan] = useState<boolean>(defaultAutoClose);
   const [lastScanned, setLastScanned] = useState<{ code: string; status: 'success' | 'error'; message: string } | null>(null);
-  const [scannedHistory, setScannedHistory] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [manualCode, setManualCode] = useState<string>('');
 
-  const lastDetectedCodeRef = useRef<string>('');
-  const lastDetectedTimeRef = useRef<number>(0);
-
-  // Stop camera tracks
+  // Stop camera tracks and cancel all scanning
   const stopCamera = useCallback(() => {
+    isScanningActiveRef.current = false;
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+
+    if (zxingReaderRef.current) {
+      try {
+        zxingReaderRef.current.reset();
+      } catch {}
+      zxingReaderRef.current = null;
+    }
+
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch {}
+      });
       streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
   }, []);
 
   // Process detected barcode string
-  const handleBarcodeDetected = useCallback(async (code: string) => {
-    const now = Date.now();
-    // Debounce duplicate reads of same barcode within 1.5 seconds
-    if (code === lastDetectedCodeRef.current && now - lastDetectedTimeRef.current < 1500) {
-      return;
+  const handleBarcodeDetected = useCallback(async (rawCode: string) => {
+    if (!rawCode || !rawCode.trim()) return;
+    const cleanCode = rawCode.trim();
+
+    // Prevent duplicate triggers
+    if (!isScanningActiveRef.current && autoCloseOnScan) return;
+
+    if (autoCloseOnScan) {
+      isScanningActiveRef.current = false;
+      stopCamera();
     }
 
-    lastDetectedCodeRef.current = code;
-    lastDetectedTimeRef.current = now;
     setIsProcessing(true);
 
     try {
-      const success = await onScan(code);
+      const success = await onScan(cleanCode);
+
       if (success) {
         posSounds.playBeepSuccess();
         setLastScanned({
-          code,
+          code: cleanCode,
           status: 'success',
-          message: `Added: ${code}`,
+          message: `Added: ${cleanCode}`,
         });
-        setScannedHistory(prev => [code, ...prev.slice(0, 9)]);
-
-        // 1-Time Scan: Automatically close camera on successful scan
-        if (autoCloseOnScan) {
-          stopCamera();
-          setTimeout(() => {
-            onClose();
-          }, 350);
-        }
       } else {
         posSounds.playBeepError();
         setLastScanned({
-          code,
+          code: cleanCode,
           status: 'error',
-          message: `Item not found for code "${code}"`,
+          message: `Code: ${cleanCode}`,
         });
+      }
+
+      // Auto-close camera modal immediately after 1 scan
+      if (autoCloseOnScan) {
+        onClose();
       }
     } catch {
       posSounds.playBeepError();
-      setLastScanned({
-        code,
-        status: 'error',
-        message: `Failed to lookup code "${code}"`,
-      });
+      if (autoCloseOnScan) {
+        onClose();
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -100,6 +114,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     stopCamera();
     setErrorMessage('');
     setHasCameraPermission(null);
+    isScanningActiveRef.current = true;
 
     try {
       const constraints: MediaStreamConstraints = {
@@ -133,7 +148,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
       console.error('Camera access error:', err);
       setHasCameraPermission(false);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setErrorMessage('Camera access was denied. Please allow camera permissions in your browser settings.');
+        setErrorMessage('Camera permission was denied. Please allow camera access in your browser address bar.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setErrorMessage('No camera device found on this system.');
       } else {
@@ -159,7 +174,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     }
   };
 
-  // Detection loop using native BarcodeDetector API
+  // Detection loop using native BarcodeDetector API or Canvas ZXing fallback
   const startDetectionLoop = () => {
     const hasNativeBarcodeDetector = 'BarcodeDetector' in window;
     let detector: any = null;
@@ -188,6 +203,8 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     }
 
     const scanFrame = async () => {
+      if (!isScanningActiveRef.current) return;
+
       if (!videoRef.current || videoRef.current.readyState < 2) {
         animationFrameRef.current = requestAnimationFrame(scanFrame);
         return;
@@ -196,10 +213,11 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
       if (detector) {
         try {
           const barcodes = await detector.detect(videoRef.current);
-          if (barcodes && barcodes.length > 0) {
+          if (barcodes && barcodes.length > 0 && isScanningActiveRef.current) {
             const rawValue = barcodes[0].rawValue;
             if (rawValue) {
               handleBarcodeDetected(rawValue);
+              return;
             }
           }
         } catch {
@@ -207,7 +225,9 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         }
       }
 
-      animationFrameRef.current = requestAnimationFrame(scanFrame);
+      if (isScanningActiveRef.current) {
+        animationFrameRef.current = requestAnimationFrame(scanFrame);
+      }
     };
 
     animationFrameRef.current = requestAnimationFrame(scanFrame);
@@ -367,14 +387,8 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
                 onChange={e => setAutoCloseOnScan(e.target.checked)}
                 className="rounded border-slate-600 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
               />
-              <span className="font-semibold text-slate-200">Auto-close camera on 1 scan (Recommended)</span>
+              <span className="font-semibold text-slate-200">Auto-close camera on 1 scan</span>
             </label>
-
-            {scannedHistory.length > 0 && (
-              <span className="text-[11px] text-emerald-400 font-mono">
-                {scannedHistory.length} item(s) scanned
-              </span>
-            )}
           </div>
 
           {/* Manual Barcode Input Fallback */}

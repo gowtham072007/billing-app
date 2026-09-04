@@ -47,6 +47,7 @@ export const Billing: React.FC = () => {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isUpiQrModalOpen, setIsUpiQrModalOpen] = useState<boolean>(false);
   const [isCameraScannerOpen, setIsCameraScannerOpen] = useState<boolean>(false);
+  const [barcodeToast, setBarcodeToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
   // Receipt Modal State
   const [completedBill, setCompletedBill] = useState<Bill | null>(null);
@@ -152,7 +153,8 @@ export const Billing: React.FC = () => {
     itemRateType: 'c_rate' | 'w_rate' = activeSection.rateMode
   ) => {
     if (product.stock <= 0) {
-      alert(`"${product.name}" is out of stock!`);
+      setBarcodeToast({ text: `⚠️ "${product.name}" is OUT OF STOCK!`, isError: true });
+      setTimeout(() => setBarcodeToast(null), 3500);
       return;
     }
 
@@ -166,7 +168,8 @@ export const Billing: React.FC = () => {
       if (existing) {
         const newQty = existing.quantity + quantity;
         if (newQty > product.stock) {
-          alert(`Cannot add more than available stock (${product.stock} ${product.unit}).`);
+          setBarcodeToast({ text: `Cannot add more than available stock (${product.stock} ${product.unit}).`, isError: true });
+          setTimeout(() => setBarcodeToast(null), 3500);
           return prev;
         }
         return {
@@ -179,7 +182,8 @@ export const Billing: React.FC = () => {
         };
       } else {
         if (quantity > product.stock) {
-          alert(`Quantity exceeds available stock (${product.stock} ${product.unit}).`);
+          setBarcodeToast({ text: `Quantity exceeds available stock (${product.stock} ${product.unit}).`, isError: true });
+          setTimeout(() => setBarcodeToast(null), 3500);
           return prev;
         }
 
@@ -207,46 +211,59 @@ export const Billing: React.FC = () => {
     });
   };
 
-  // Barcode / SKU Scan Handler with POS Sound feedback
+  // Barcode / SKU Scan Handler with POS Sound feedback & non-blocking toast
   const handleBarcodeScan = async (code: string): Promise<boolean> => {
     if (!code || !code.trim()) return false;
     const cleanCode = code.trim().toUpperCase();
+    const cleanNumeric = cleanCode.replace(/^0+/, '');
 
-    // Check local product cache first (by SKU or barcode)
-    const localMatch = products.find(
-      p => p.sku.toUpperCase() === cleanCode || (p.barcode && p.barcode.toUpperCase() === cleanCode)
-    );
+    // 1. Check local product cache
+    const localMatch = products.find(p => {
+      const pSku = (p.sku || '').trim().toUpperCase();
+      const pBarcode = (p.barcode || '').trim().toUpperCase();
+      return (
+        pSku === cleanCode ||
+        pBarcode === cleanCode ||
+        (cleanNumeric && pBarcode === cleanNumeric) ||
+        (cleanNumeric && pSku === cleanNumeric)
+      );
+    });
 
     if (localMatch) {
       if (localMatch.stock <= 0) {
         posSounds.playBeepError();
-        alert(`"${localMatch.name}" is out of stock!`);
+        setBarcodeToast({ text: `⚠️ "${localMatch.name}" is OUT OF STOCK!`, isError: true });
+        setTimeout(() => setBarcodeToast(null), 3500);
         return false;
       }
       posSounds.playBeepSuccess();
       handleAddProduct(localMatch, 1);
+      setBarcodeToast({ text: `✓ Added: ${localMatch.name}` });
+      setTimeout(() => setBarcodeToast(null), 2500);
       return true;
     }
 
-    // Try server lookup
+    // 2. Try server lookup
     try {
       const res = await api.get<{ product: Product }>(`/products/lookup/${encodeURIComponent(cleanCode)}`);
       if (res.product) {
         if (res.product.stock <= 0) {
           posSounds.playBeepError();
-          alert(`"${res.product.name}" is out of stock!`);
+          setBarcodeToast({ text: `⚠️ "${res.product.name}" is OUT OF STOCK!`, isError: true });
+          setTimeout(() => setBarcodeToast(null), 3500);
           return false;
         }
         posSounds.playBeepSuccess();
         handleAddProduct(res.product, 1);
+        setBarcodeToast({ text: `✓ Added: ${res.product.name}` });
+        setTimeout(() => setBarcodeToast(null), 2500);
         return true;
       }
-    } catch {
-      posSounds.playBeepError();
-      return false;
-    }
+    } catch {}
 
     posSounds.playBeepError();
+    setBarcodeToast({ text: `✕ No product found for Barcode / SKU "${cleanCode}"`, isError: true });
+    setTimeout(() => setBarcodeToast(null), 3500);
     return false;
   };
 
@@ -269,7 +286,8 @@ export const Billing: React.FC = () => {
       items: prev.items.map(item => {
         if (item.product_id === productId) {
           if (qty > item.available_stock) {
-            alert(`Maximum available stock is ${item.available_stock} ${item.unit}.`);
+            setBarcodeToast({ text: `Maximum available stock is ${item.available_stock} ${item.unit}.`, isError: true });
+            setTimeout(() => setBarcodeToast(null), 3500);
             return item;
           }
           return {
@@ -316,7 +334,8 @@ export const Billing: React.FC = () => {
   // Complete and Submit Bill for Active Section
   const handleCompleteBill = async (printImmediate: boolean = false) => {
     if (activeSection.items.length === 0) {
-      alert('Please add at least one product to the bill.');
+      setBarcodeToast({ text: 'Please add at least one product to the bill.', isError: true });
+      setTimeout(() => setBarcodeToast(null), 3500);
       return;
     }
 
@@ -463,6 +482,28 @@ export const Billing: React.FC = () => {
         onSelectSection={setActiveSectionId}
         onClearSection={handleClearSection}
       />
+
+      {/* Barcode Scanner Floating Alert / Toast */}
+      {barcodeToast && (
+        <div
+          className={`px-4 py-2 rounded-xl text-xs font-bold text-white flex items-center justify-between shadow-lg animate-fade-in ${
+            barcodeToast.isError
+              ? 'bg-rose-600 border border-rose-700 shadow-rose-600/20'
+              : 'bg-emerald-600 border border-emerald-700 shadow-emerald-600/20'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${barcodeToast.isError ? 'bg-white' : 'bg-emerald-200 animate-ping'}`} />
+            <span>{barcodeToast.text}</span>
+          </div>
+          <button
+            onClick={() => setBarcodeToast(null)}
+            className="text-white/80 hover:text-white text-xs font-bold ml-4 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* POS Billing Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">

@@ -208,39 +208,9 @@ export const Products: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Top Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            {t('nav_products')}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            English & Tamil Names • <span className="font-bold text-brand-600">C-Rate</span> (Retail) & <span className="font-bold text-indigo-600">W-Rate</span> (Wholesale)
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {products.length > 0 && (
-            <button
-              onClick={() => setIsClearAllModalOpen(true)}
-              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4 text-rose-600" />
-              <span>Clear All Products</span>
-            </button>
-          )}
-
-          <button
-            onClick={fetchProducts}
-            className="p-2.5 text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
-            title="Refresh List"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
 
 
-        </div>
-      </div>
+
 
       {/* Filter / Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
