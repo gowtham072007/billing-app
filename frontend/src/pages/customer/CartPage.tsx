@@ -17,6 +17,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { api } from '../../api/client';
+import { getAutoProductImage } from '../../utils/productImageHelper';
 
 export const CartPage: React.FC = () => {
   const { items, updateQuantity, removeFromCart, clearCart, subtotal, totalItems } = useCart();
@@ -179,17 +180,14 @@ export const CartPage: React.FC = () => {
             {items.map(item => (
               <div key={item.product.id} className="py-3.5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  {item.product.image ? (
-                    <img
-                      src={item.product.image}
-                      alt={item.product.name}
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                      <Store className="w-5 h-5" />
-                    </div>
-                  )}
+                  <img
+                    src={item.product.image || getAutoProductImage(item.product.name, item.product.name_tamil, item.product.category)}
+                    alt={item.product.name}
+                    className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 bg-white p-0.5"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getAutoProductImage(item.product.name, item.product.name_tamil, item.product.category);
+                    }}
+                  />
 
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">

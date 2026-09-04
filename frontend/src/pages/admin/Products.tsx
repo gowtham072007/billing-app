@@ -14,6 +14,9 @@ import {
   Tag,
   Languages,
   Camera,
+  Image as ImageIcon,
+  Check,
+  Wand2,
 } from 'lucide-react';
 import { Product } from '../../types';
 import { api } from '../../api/client';
@@ -21,6 +24,11 @@ import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { useLanguage } from '../../context/LanguageContext';
 import { CameraBarcodeScannerModal } from '../../components/pos/CameraBarcodeScannerModal';
+import {
+  getAutoProductImage,
+  getSuggestedImages,
+  ImagePreset,
+} from '../../utils/productImageHelper';
 
 export const Products: React.FC = () => {
   const { t, language } = useLanguage();
@@ -51,6 +59,8 @@ export const Products: React.FC = () => {
   const [minimumStock, setMinimumStock] = useState<number | ''>(5);
   const [unit, setUnit] = useState<string>('pcs');
   const [image, setImage] = useState<string>('');
+  const [isImageManuallyEdited, setIsImageManuallyEdited] = useState<boolean>(false);
+  const [showCustomImageInput, setShowCustomImageInput] = useState<boolean>(false);
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [formError, setFormError] = useState<string>('');
 
@@ -84,7 +94,8 @@ export const Products: React.FC = () => {
     setCurrentId(null);
     setName('');
     setNameTamil('');
-    setCategory(categories[0] || 'Grocery');
+    const defaultCat = categories[0] || 'Grocery';
+    setCategory(defaultCat);
     setSku(`SKU-${Date.now().toString().slice(-4)}`);
     setBarcode('');
     setPurchasePrice('');
@@ -93,7 +104,9 @@ export const Products: React.FC = () => {
     setStock(10);
     setMinimumStock(5);
     setUnit('pcs');
-    setImage('');
+    setImage(getAutoProductImage('', '', defaultCat));
+    setIsImageManuallyEdited(false);
+    setShowCustomImageInput(false);
     setStatus('active');
     setFormError('');
     setIsModalOpen(true);
@@ -113,10 +126,45 @@ export const Products: React.FC = () => {
     setStock(p.stock);
     setMinimumStock(p.minimum_stock);
     setUnit(p.unit);
-    setImage(p.image || '');
+    setImage(p.image || getAutoProductImage(p.name, p.name_tamil, p.category));
+    setIsImageManuallyEdited(Boolean(p.image));
+    setShowCustomImageInput(false);
     setStatus(p.status);
     setFormError('');
     setIsModalOpen(true);
+  };
+
+  // Automatically update product image when typing name if not manually overridden
+  const handleNameChange = (val: string) => {
+    setName(val);
+    if (!isImageManuallyEdited) {
+      setImage(getAutoProductImage(val, nameTamil, category));
+    }
+  };
+
+  const handleNameTamilChange = (val: string) => {
+    setNameTamil(val);
+    if (!isImageManuallyEdited) {
+      setImage(getAutoProductImage(name, val, category));
+    }
+  };
+
+  const handleCategoryChange = (val: string) => {
+    setCategory(val);
+    if (!isImageManuallyEdited) {
+      setImage(getAutoProductImage(name, nameTamil, val));
+    }
+  };
+
+  const handleSelectPreset = (imgUrl: string) => {
+    setImage(imgUrl);
+    setIsImageManuallyEdited(true);
+  };
+
+  const handleAutoDetectImage = () => {
+    const autoImg = getAutoProductImage(name, nameTamil, category);
+    setImage(autoImg);
+    setIsImageManuallyEdited(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -345,14 +393,27 @@ export const Products: React.FC = () => {
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-800 text-sm">{p.name}</div>
-                        {p.name_tamil ? (
-                          <div className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-emerald-200">
-                            {p.name_tamil}
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={p.image || getAutoProductImage(p.name, p.name_tamil, p.category)}
+                            alt={p.name}
+                            className="w-10 h-10 object-cover rounded-xl border border-slate-200 bg-white p-0.5 shadow-xs shrink-0"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = getAutoProductImage(p.name, p.name_tamil, p.category);
+                            }}
+                          />
+                          <div className="overflow-hidden">
+                            <div className="font-bold text-slate-800 text-sm truncate">{p.name}</div>
+                            {p.name_tamil ? (
+                              <div className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-emerald-200 truncate">
+                                {p.name_tamil}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">No Tamil name</span>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 italic">No Tamil name</span>
-                        )}
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 font-semibold text-slate-600">
@@ -455,8 +516,8 @@ export const Products: React.FC = () => {
                 type="text"
                 required
                 value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. Aashirvaad Atta 5kg / Ponni Rice"
+                onChange={e => handleNameChange(e.target.value)}
+                placeholder="e.g. Aashirvaad Atta 5kg / Ponni Rice / Sugar"
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none font-medium"
                 autoFocus
               />
@@ -471,13 +532,111 @@ export const Products: React.FC = () => {
               <input
                 type="text"
                 value={nameTamil}
-                onChange={e => setNameTamil(e.target.value)}
+                onChange={e => handleNameTamilChange(e.target.value)}
                 placeholder="எ.கா: ஆசீர்வாத் ஆட்டா 5கிலோ / பொன்னி அரிசி"
                 className="w-full px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-sm font-bold text-emerald-900 focus:border-emerald-500 outline-none"
               />
               <span className="text-[10px] text-emerald-600 mt-1 block">
                 This Tamil name will be printed on the 4-inch thermal receipt.
               </span>
+            </div>
+
+            {/* Product Picture Auto-Selection & Live Preview Box */}
+            <div className="sm:col-span-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-brand-600" />
+                  <label className="text-xs font-extrabold text-slate-800">
+                    Product Picture (தானியங்கி படம் / Auto-Set Picture)
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoDetectImage}
+                  className="text-[11px] font-bold text-brand-700 hover:text-brand-800 flex items-center gap-1 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  title="Auto-match picture based on product name"
+                >
+                  <Wand2 className="w-3.5 h-3.5 text-brand-600" />
+                  <span>Auto-Set Picture</span>
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3.5">
+                {/* Active Image Thumbnail */}
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-brand-500 shadow-md bg-white shrink-0 group">
+                  <img
+                    src={image || getAutoProductImage(name, nameTamil, category)}
+                    alt={name || 'Product Preview'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getAutoProductImage(name, nameTamil, category);
+                    }}
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-slate-900/80 backdrop-blur-xs py-0.5 text-center">
+                    <span className="text-[9px] font-bold text-white uppercase tracking-wider">
+                      {isImageManuallyEdited ? 'Selected' : '✨ Auto Set'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Suggestions & Preset Picker */}
+                <div className="flex-1 space-y-2 w-full">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-600">
+                      Suggested Matching Pictures (Click to select):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomImageInput(!showCustomImageInput)}
+                      className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 underline"
+                    >
+                      {showCustomImageInput ? 'Hide URL' : 'Custom Image URL'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {getSuggestedImages(name, nameTamil, category).map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectPreset(preset.imageUrl)}
+                        className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
+                          image === preset.imageUrl
+                            ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
+                            : 'border-slate-200 hover:border-brand-400'
+                        }`}
+                        title={preset.alt}
+                      >
+                        <img
+                          src={preset.imageUrl}
+                          alt={preset.alt}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        {image === preset.imageUrl && (
+                          <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
+                            <Check className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {showCustomImageInput && (
+                    <div className="pt-1.5 animate-fade-in">
+                      <input
+                        type="url"
+                        value={image}
+                        onChange={(e) => {
+                          setImage(e.target.value);
+                          setIsImageManuallyEdited(true);
+                        }}
+                        placeholder="Paste custom image URL (https://...)"
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-500 outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div>
@@ -487,7 +646,7 @@ export const Products: React.FC = () => {
                 required
                 list="category-suggestions"
                 value={category}
-                onChange={e => setCategory(e.target.value)}
+                onChange={e => handleCategoryChange(e.target.value)}
                 placeholder="e.g. Grocery, Dairy, Beverages"
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
               />
@@ -635,17 +794,6 @@ export const Products: React.FC = () => {
                 onChange={e => setMinimumStock(e.target.value === '' ? '' : parseFloat(e.target.value))}
                 placeholder="5"
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:border-brand-500 outline-none"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">Image URL (Optional)</label>
-              <input
-                type="url"
-                value={image}
-                onChange={e => setImage(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
               />
             </div>
 

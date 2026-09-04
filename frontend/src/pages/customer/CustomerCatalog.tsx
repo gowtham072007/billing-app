@@ -15,6 +15,7 @@ import { Product } from '../../types';
 import { api } from '../../api/client';
 import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
+import { getAutoProductImage } from '../../utils/productImageHelper';
 
 export const CustomerCatalog: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -180,18 +181,15 @@ export const CustomerCatalog: React.FC = () => {
                 <div>
                   {/* Image Container */}
                   <div className="relative w-full h-32 sm:h-36 rounded-xl bg-slate-100 overflow-hidden mb-3">
-                    {p.image ? (
-                      <img
-                        src={p.image}
-                        alt={p.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-400">
-                        <Package className="w-8 h-8" />
-                      </div>
-                    )}
+                    <img
+                      src={p.image || getAutoProductImage(p.name, p.name_tamil, p.category)}
+                      alt={p.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getAutoProductImage(p.name, p.name_tamil, p.category);
+                      }}
+                    />
 
                     {/* Stock Status Badge */}
                     <div className="absolute top-2 right-2">
