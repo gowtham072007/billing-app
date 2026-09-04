@@ -41,7 +41,7 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 print:p-0 print:m-0 print:absolute print:inset-0 print:overflow-visible print:bg-white">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 print:static print:block print:p-0 print:m-0 print:h-auto print:min-h-0 print:overflow-visible print:bg-transparent">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity print:hidden"
@@ -50,7 +50,7 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Dialog Content */}
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full ${maxWidthClasses[maxWidth]} overflow-hidden transform transition-all z-10 flex flex-col max-h-[90vh] print:max-h-none print:max-w-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:overflow-visible`}
+        className={`relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full ${maxWidthClasses[maxWidth]} overflow-hidden transform transition-all z-10 flex flex-col max-h-[90vh] print:static print:block print:h-auto print:min-h-0 print:max-h-none print:max-w-none print:shadow-none print:border-none print:rounded-none print:p-0 print:m-0 print:overflow-visible print:bg-transparent`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 print:hidden">
@@ -67,7 +67,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto flex-1 print:p-0 print:overflow-visible">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1 print:p-0 print:m-0 print:h-auto print:min-h-0 print:overflow-visible">{children}</div>
       </div>
     </div>
   );

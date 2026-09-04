@@ -80,21 +80,23 @@
 /* EXACT THERMAL RECEIPT ROLL PRINT MEDIA ENGINE (80MM / 3-INCH & 58MM)     */
 /* ========================================================================= */
 @media print {
-  /* Hide non-printable app UI elements */
+  /* Hide all non-printable app UI elements */
   nav, aside, footer, header, button, .no-print, .print\:hidden {
     display: none !important;
   }
 
-  /* Reset body and html strictly to exact receipt roll width */
-  html, body {
+  /* Reset body, html and root to natural content height */
+  html, body, #root {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: 80mm !important;
-    max-width: 80mm !important;
+    width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
+    display: block !important;
   }
 
   /* Reveal only the thermal receipt container */
@@ -107,12 +109,11 @@
 
   #thermal-receipt-printable {
     display: block !important;
-    position: static !important;
-    width: 80mm !important;
+    position: relative !important;
+    width: 76mm !important; /* Printable printable width for 80mm rolls */
     max-width: 80mm !important;
-    min-width: 76mm !important;
     margin: 0 auto !important;
-    padding: 1.5mm 2.5mm !important;
+    padding: 1mm 2mm !important;
     background-color: #ffffff !important;
     font-family: "JetBrains Mono", Consolas, "Courier New", Courier, monospace, sans-serif !important;
     font-size: 11px !important;
@@ -120,10 +121,13 @@
     box-shadow: none !important;
     border: none !important;
     box-sizing: border-box !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    break-inside: avoid !important;
   }
 
   @page {
-    size: 80mm auto; /* Locks printer roll size to exact 80mm width */
     margin: 0mm !important;
+    size: auto;
   }
 }
