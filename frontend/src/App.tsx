@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { AdminSidebar } from './components/common/AdminSidebar';
+import { AdminHeader } from './components/common/AdminHeader';
 import { Navbar } from './components/common/Navbar';
 import { SplashScreen } from './components/common/SplashScreen';
 
@@ -29,6 +30,18 @@ import { Register } from './pages/auth/Register';
 // Admin Route Guard
 const AdminLayout: React.FC = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState<boolean>(() => {
+    return localStorage.getItem('admin_sidebar_collapsed') === 'true';
+  });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = React.useState<boolean>(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('admin_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -44,10 +57,22 @@ const AdminLayout: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-100">
-      <AdminSidebar />
-      <main className="flex-1 overflow-y-auto max-h-screen">
-        <Outlet />
-      </main>
+      <AdminSidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
+      <div className="flex-1 flex flex-col min-w-0 max-h-screen overflow-hidden">
+        <AdminHeader
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={toggleSidebar}
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        />
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 };
