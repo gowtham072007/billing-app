@@ -41,6 +41,11 @@ export const Login: React.FC = () => {
       return;
     }
 
+    if (customerPhone.trim() && !/^\d{10}$/.test(customerPhone.trim())) {
+      setErrorMessage('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
     setErrorMessage('');
     setIsSubmitting(true);
 
@@ -131,7 +136,7 @@ export const Login: React.FC = () => {
             </div>
           )}
 
-          {/* CUSTOMER FORM: Clean Name Only */}
+          {/* CUSTOMER FORM: Name and Mobile Phone */}
           {role === 'customer' ? (
             <form onSubmit={handleCustomerSubmit} className="space-y-4">
               <div>
@@ -146,6 +151,20 @@ export const Login: React.FC = () => {
                   placeholder="உங்கள் பெயர் / Enter your name"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal"
                   autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t('mobile_phone')}
+                </label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="9876543210 (10-digit mobile number)"
+                  maxLength={10}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal font-mono"
                 />
               </div>
 
