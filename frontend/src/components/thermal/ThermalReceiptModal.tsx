@@ -123,7 +123,7 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
     >
       <div className="space-y-3.5">
         {/* Direct Thermal Machine Banner & Connection */}
-        <div className="bg-slate-900 text-white p-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-sm">
+        <div className="bg-slate-900 text-white p-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-sm print:hidden">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0">
               <Printer className="w-4 h-4" />
@@ -166,7 +166,7 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
         </div>
 
         {/* Collapsible Direct Print Configuration Tip */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 print:hidden">
           <button
             type="button"
             onClick={() => setShowDirectGuide(!showDirectGuide)}
@@ -198,14 +198,14 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
         </div>
 
         {/* Receipt Visual Paper Mockup */}
-        <div className="bg-slate-100 p-3.5 rounded-xl flex justify-center overflow-x-auto shadow-inner max-h-72">
-          <div className="bg-white p-3 shadow-md rounded-sm border border-slate-200">
+        <div className="bg-slate-100 p-3.5 rounded-xl flex justify-center overflow-x-auto shadow-inner max-h-72 print:bg-transparent print:p-0 print:m-0 print:max-h-none print:shadow-none print:overflow-visible">
+          <div className="bg-white p-3 shadow-md rounded-sm border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
             <ThermalReceipt bill={bill} items={items} settings={settings} />
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t border-slate-100 print:hidden">
           <button
             onClick={handleCopyText}
             className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"

@@ -77,37 +77,41 @@
 }
 
 /* ========================================================================= */
-/* 4-INCH THERMAL RECEIPT PRINT MEDIA ENGINE                                */
+/* 4-INCH & 80MM THERMAL RECEIPT PRINT MEDIA ENGINE                         */
 /* ========================================================================= */
 @media print {
-  /* Hide all regular web app chrome, sidebars, buttons, modals backdrop */
-  body * {
-    visibility: hidden;
+  /* Hide non-printable app UI elements */
+  nav, aside, footer, header, button, .no-print, .print\:hidden {
+    display: none !important;
   }
 
-  body {
+  /* Reset body and html */
+  html, body {
     background: #ffffff !important;
+    color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
-  /* Reveal and format only the thermal receipt container */
+  /* Reveal only the thermal receipt container */
   #thermal-receipt-printable,
   #thermal-receipt-printable * {
     visibility: visible !important;
+    opacity: 1 !important;
+    color: #000000 !important;
   }
 
   #thermal-receipt-printable {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100mm !important; /* 4-inch standard thermal width */
-    max-width: 100mm !important;
-    margin: 0 !important;
+    display: block !important;
+    position: relative !important;
+    width: 80mm !important; /* Standard 80mm / 3-inch & 4-inch thermal roll */
+    max-width: 80mm !important;
+    margin: 0 auto !important;
     padding: 2mm 3mm !important;
     background-color: #ffffff !important;
-    color: #000000 !important;
-    font-family: "JetBrains Mono", Consolas, "Courier New", Courier, monospace !important;
+    font-family: "JetBrains Mono", Consolas, "Courier New", Courier, monospace, sans-serif !important;
     font-size: 11px !important;
     line-height: 1.25 !important;
     box-shadow: none !important;
@@ -115,11 +119,7 @@
   }
 
   @page {
-    size: 100mm auto; /* Thermal paper roll */
+    size: 80mm auto; /* Standard Thermal Roll */
     margin: 0mm;
-  }
-
-  .no-print {
-    display: none !important;
   }
 }
