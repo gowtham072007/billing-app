@@ -18,8 +18,8 @@ export const Login: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState<string>('');
 
   // Admin State
-  const [adminIdentifier, setAdminIdentifier] = useState<string>('admin@shop.com');
-  const [adminPassword, setAdminPassword] = useState<string>('admin123');
+  const [adminIdentifier, setAdminIdentifier] = useState<string>('');
+  const [adminPassword, setAdminPassword] = useState<string>('');
 
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -198,22 +198,6 @@ export const Login: React.FC = () => {
                 <span>{isSubmitting ? t('loading') : `${t('sign_in')} →`}</span>
               </button>
             </form>
-          )}
-
-          {/* 1-Click Demo Shortcut for Admin */}
-          {role === 'admin' && (
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminIdentifier('admin@shop.com');
-                  setAdminPassword('admin123');
-                }}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-mono transition-colors"
-              >
-                Admin Demo (admin@shop.com / admin123)
-              </button>
-            </div>
           )}
         </div>
       </div>
