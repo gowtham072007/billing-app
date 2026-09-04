@@ -73,7 +73,7 @@ export const Settings: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Shop & Receipt Settings</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Store metadata, UPI payment QR stand details, default tax rates, and receipt footer customization
+            Store metadata, UPI payment QR details, default tax rates, and receipt footer customization
           </p>
         </div>
       </div>
