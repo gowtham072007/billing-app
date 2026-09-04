@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, X, RefreshCw, Zap, ZapOff, CheckCircle2, AlertCircle, Volume2, VolumeX, Barcode } from 'lucide-react';
+import { Camera, X, RefreshCw, Zap, ZapOff, CheckCircle2, AlertCircle, Barcode, Check } from 'lucide-react';
 import { posSounds } from '../../utils/soundEffects';
 
 interface CameraBarcodeScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onScan: (barcode: string) => Promise<boolean>;
+  defaultAutoClose?: boolean;
 }
 
 export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps> = ({
   isOpen,
   onClose,
   onScan,
+  defaultAutoClose = true,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -22,7 +24,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
   const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
   const [hasTorch, setHasTorch] = useState<boolean>(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
-  const [continuousMode, setContinuousMode] = useState<boolean>(true);
+  const [autoCloseOnScan, setAutoCloseOnScan] = useState<boolean>(defaultAutoClose);
   const [lastScanned, setLastScanned] = useState<{ code: string; status: 'success' | 'error'; message: string } | null>(null);
   const [scannedHistory, setScannedHistory] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -62,14 +64,16 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
         setLastScanned({
           code,
           status: 'success',
-          message: `Product added: ${code}`,
+          message: `Added: ${code}`,
         });
         setScannedHistory(prev => [code, ...prev.slice(0, 9)]);
 
-        if (!continuousMode) {
+        // 1-Time Scan: Automatically close camera on successful scan
+        if (autoCloseOnScan) {
+          stopCamera();
           setTimeout(() => {
             onClose();
-          }, 600);
+          }, 350);
         }
       } else {
         posSounds.playBeepError();
@@ -89,7 +93,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     } finally {
       setIsProcessing(false);
     }
-  }, [onScan, continuousMode, onClose]);
+  }, [onScan, autoCloseOnScan, onClose, stopCamera]);
 
   // Start Camera Stream
   const startCamera = useCallback(async () => {
@@ -155,7 +159,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     }
   };
 
-  // Detection loop using native BarcodeDetector API or Canvas sampling
+  // Detection loop using native BarcodeDetector API
   const startDetectionLoop = () => {
     const hasNativeBarcodeDetector = 'BarcodeDetector' in window;
     let detector: any = null;
@@ -222,11 +226,12 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     };
   }, [isOpen, startCamera, stopCamera]);
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualCode.trim()) return;
-    handleBarcodeDetected(manualCode.trim());
+    if (!manualCode.trim() || isProcessing) return;
+    const code = manualCode.trim();
     setManualCode('');
+    await handleBarcodeDetected(code);
   };
 
   if (!isOpen) return null;
@@ -243,11 +248,14 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 Live Barcode Scanner
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">
-                  Ready
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  {autoCloseOnScan ? '1-Time Scan' : 'Continuous'}
                 </span>
               </h3>
-              <p className="text-xs text-slate-400">Point your camera at any product barcode or SKU</p>
+              <p className="text-xs text-slate-400">
+                {autoCloseOnScan ? 'Scan 1 item to add and auto-close camera' : 'Point camera at product barcode or SKU'}
+              </p>
             </div>
           </div>
 
@@ -350,16 +358,16 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
 
         {/* Footer Controls & Manual Input Fallback */}
         <div className="p-4 bg-slate-800/90 border-t border-slate-700 space-y-3">
-          {/* Mode switch */}
+          {/* Auto-close Mode Toggle */}
           <div className="flex items-center justify-between text-xs text-slate-300">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={continuousMode}
-                onChange={e => setContinuousMode(e.target.checked)}
+                checked={autoCloseOnScan}
+                onChange={e => setAutoCloseOnScan(e.target.checked)}
                 className="rounded border-slate-600 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
               />
-              <span>Continuous Scan Mode (Scan multiple items)</span>
+              <span className="font-semibold text-slate-200">Auto-close camera on 1 scan (Recommended)</span>
             </label>
 
             {scannedHistory.length > 0 && (
