@@ -156,18 +156,7 @@ export interface StockTransaction {
   unit?: string;
 }
 
-export interface ShopSettings {
-  shop_name: string;
-  shop_address: string;
-  shop_phone: string;
-  shop_email: string;
-  shop_gstin: string;
-  receipt_footer: string;
-  default_tax_rate: string;
-  currency_symbol: string;
-  thermal_paper_width: string;
-  upi_id?: string;
-}
+
 
 export interface DashboardStats {
   summary: {
@@ -187,4 +176,19 @@ export interface DashboardStats {
     payment_breakdown: Array<{ payment_method: string; total_amount: number; count: number }>;
     top_products: Array<{ name: string; quantity: number; revenue: number }>;
   };
+}
+
+export interface ShopSettings {
+  shop_name: string;
+  shop_address: string;
+  shop_phone: string;
+  shop_email: string;
+  shop_gstin: string;
+  receipt_footer: string;
+  default_tax_rate: string;
+  currency_symbol: string;
+  thermal_paper_width: string;
+  upi_id?: string;
+  upi_payee_name?: string;
+  bank_name?: string;
 }

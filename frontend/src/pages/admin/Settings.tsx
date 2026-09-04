@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, Printer, CheckCircle2, Store } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Printer, CheckCircle2, Store, QrCode } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { ThermalReceipt } from '../../components/thermal/ThermalReceipt';
 import { Bill, BillItem } from '../../types';
@@ -8,15 +8,18 @@ export const Settings: React.FC = () => {
   const { settings, updateSettings } = useSettings();
 
   const [formData, setFormData] = useState({
-    shop_name: settings.shop_name || '',
-    shop_address: settings.shop_address || '',
-    shop_phone: settings.shop_phone || '',
+    shop_name: settings.shop_name || 'VILMANI TRADERS',
+    shop_address: settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu - 600001',
+    shop_phone: settings.shop_phone || '+91 98765 43210',
     shop_email: settings.shop_email || '',
     shop_gstin: settings.shop_gstin || '',
-    receipt_footer: settings.receipt_footer || 'Thank You! Visit Again.',
+    receipt_footer: settings.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.',
     default_tax_rate: settings.default_tax_rate || '0',
     currency_symbol: settings.currency_symbol || '₹',
     thermal_paper_width: settings.thermal_paper_width || '100mm',
+    upi_id: settings.upi_id || 'vilmanitraders1386@iob',
+    upi_payee_name: settings.upi_payee_name || 'VILMANI TRADERS',
+    bank_name: settings.bank_name || 'Indian Overseas Bank',
   });
 
   const [isSaved, setIsSaved] = useState(false);
@@ -70,7 +73,7 @@ export const Settings: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Shop & Receipt Settings</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Store metadata, default tax rates, thermal printer width, and receipt footer customization
+            Store metadata, UPI payment QR stand details, default tax rates, and receipt footer customization
           </p>
         </div>
       </div>
@@ -92,8 +95,8 @@ export const Settings: React.FC = () => {
                 required
                 value={formData.shop_name}
                 onChange={e => handleChange('shop_name', e.target.value)}
-                placeholder="e.g. Vilmani Store"
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
+                placeholder="e.g. VILMANI TRADERS"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none font-bold"
               />
             </div>
 
@@ -128,7 +131,7 @@ export const Settings: React.FC = () => {
                   type="email"
                   value={formData.shop_email}
                   onChange={e => handleChange('shop_email', e.target.value)}
-                  placeholder="contact@srikrishnastore.com"
+                  placeholder="contact@vilmanitraders.com"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
                 />
               </div>
@@ -143,6 +146,51 @@ export const Settings: React.FC = () => {
                 placeholder="e.g. 33AAAAA0000A1Z5"
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:border-brand-500 outline-none"
               />
+            </div>
+          </div>
+
+          {/* UPI & QR Payment Configuration Card */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <QrCode className="w-4 h-4 text-blue-600" />
+              <span>UPI & QR Payment Details</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">UPI ID (VPA) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.upi_id}
+                  onChange={e => handleChange('upi_id', e.target.value)}
+                  placeholder="e.g. vilmanitraders1386@iob"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:border-brand-500 outline-none font-bold text-blue-900 bg-blue-50/40"
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Customer scans this to pay directly</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Payee Name on UPI</label>
+                <input
+                  type="text"
+                  value={formData.upi_payee_name}
+                  onChange={e => handleChange('upi_payee_name', e.target.value)}
+                  placeholder="e.g. VILMANI TRADERS"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none font-bold"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">Bank Name (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.bank_name}
+                  onChange={e => handleChange('bank_name', e.target.value)}
+                  placeholder="e.g. Indian Overseas Bank"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
+                />
+              </div>
             </div>
           </div>
 
@@ -204,7 +252,7 @@ export const Settings: React.FC = () => {
             <button
               type="submit"
               disabled={isSaving}
-              className="ml-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-brand-600/20 transition-all hover:scale-[1.02]"
+              className="ml-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-brand-600/20 transition-all hover:scale-[1.02] cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Saving...' : 'Save & Apply Settings'}</span>
