@@ -32,6 +32,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   const [editNameInput, setEditNameInput] = useState(connectedDeviceName);
   const [isDirectPrinting, setIsDirectPrinting] = useState(false);
   const [showDirectGuide, setShowDirectGuide] = useState(false);
+  const [paperWidth, setPaperWidth] = useState<'58mm' | '80mm' | '100mm'>('80mm');
 
   if (!bill) return null;
 
@@ -243,10 +244,31 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
           )}
         </div>
 
+        {/* Paper Roll Size Selector */}
+        <div className="flex items-center justify-between px-1 print:hidden">
+          <span className="text-xs font-bold text-slate-700">Receipt Roll Size:</span>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            {(['58mm', '80mm', '100mm'] as const).map(w => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setPaperWidth(w)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  paperWidth === w
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {w === '80mm' ? '80mm (3-inch / TVS)' : w === '58mm' ? '58mm (2-inch)' : '100mm (4-inch)'}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Receipt Visual Paper Mockup */}
         <div className="bg-slate-100 p-3.5 rounded-xl flex justify-center overflow-x-auto shadow-inner max-h-72 print:bg-transparent print:p-0 print:m-0 print:max-h-none print:shadow-none print:overflow-visible">
           <div className="bg-white p-3 shadow-md rounded-sm border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
-            <ThermalReceipt bill={bill} items={items} settings={settings} />
+            <ThermalReceipt bill={bill} items={items} settings={settings} paperWidth={paperWidth} />
           </div>
         </div>
 

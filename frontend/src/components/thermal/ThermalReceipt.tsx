@@ -5,12 +5,14 @@ interface ThermalReceiptProps {
   bill: Bill;
   items: BillItem[];
   settings?: Partial<ShopSettings>;
+  paperWidth?: '58mm' | '80mm' | '100mm';
 }
 
 export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   bill,
   items,
   settings = {},
+  paperWidth = '80mm',
 }) => {
   const shopName = settings.shop_name || 'Vilmani Store';
   const shopAddress = settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu';
@@ -31,10 +33,18 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     hour12: true,
   });
 
+  const widthClass =
+    paperWidth === '58mm'
+      ? 'w-[58mm] max-w-[58mm]'
+      : paperWidth === '100mm'
+      ? 'w-[100mm] max-w-[100mm]'
+      : 'w-[80mm] max-w-[80mm]';
+
   return (
     <div
       id="thermal-receipt-printable"
-      className="bg-white text-black font-sans text-[11px] leading-tight p-2 sm:p-4 max-w-[100mm] mx-auto border border-dashed border-slate-300 print:border-none print:p-0 select-text"
+      className={`bg-white text-black font-sans text-[11px] leading-tight p-2 sm:p-3 mx-auto border border-dashed border-slate-300 print:border-none print:p-1 select-text ${widthClass}`}
+      style={{ boxSizing: 'border-box' }}
     >
       {/* Header Section */}
       <div className="text-center pb-2">
@@ -68,7 +78,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       {/* Divider */}
       <div className="border-t border-black my-1 border-dashed"></div>
 
-      {/* Items Table - Product Name Printed ONLY in Tamil */}
+      {/* Items Table - Product Name Printed in Tamil / English */}
       <table className="w-full text-left text-[10px] sm:text-[11px] border-collapse">
         <thead>
           <tr className="border-b border-black text-[10px] font-bold">
@@ -87,8 +97,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             return (
               <tr key={index} className="print:border-none">
                 <td className="py-1.5 pr-1 break-words leading-tight">
-                  {/* ONLY Tamil Product Name */}
-                  <span className="font-extrabold text-black block text-[12px] sm:text-[13px] leading-snug">
+                  <span className="font-extrabold text-black block text-[11px] sm:text-[12px] leading-snug">
                     {printName}
                   </span>
                   {item.unit && item.unit !== 'pcs' && (
@@ -148,21 +157,17 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         {bill.payment_reference && (
           <div className="flex justify-between text-[9px] text-slate-600">
             <span>Ref:</span>
-            <span className="font-mono truncate max-w-[180px]">{bill.payment_reference}</span>
+            <span className="font-mono">{bill.payment_reference}</span>
           </div>
         )}
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-black my-2 border-dashed"></div>
-
-      {/* Footer */}
-      <div className="text-center pt-1 text-[10px] space-y-1">
-        <p className="font-bold tracking-wider">{footerMessage}</p>
-        <p className="text-[9px] text-slate-500">QuickBill POS 4-Inch Thermal Print</p>
-        <div className="text-center text-[9px] font-mono tracking-widest pt-1">
-          *{bill.bill_number}*
-        </div>
+      {/* Footer message */}
+      <div className="text-center pt-3 pb-1 border-t border-black mt-2 text-[10px] font-bold whitespace-pre-line">
+        <p>{footerMessage}</p>
+        <p className="text-[8px] text-slate-500 font-mono mt-1">
+          *** Software: QuickBill POS System ***
+        </p>
       </div>
     </div>
   );
