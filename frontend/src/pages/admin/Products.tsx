@@ -13,12 +13,14 @@ import {
   Sparkles,
   Tag,
   Languages,
+  Camera,
 } from 'lucide-react';
 import { Product } from '../../types';
 import { api } from '../../api/client';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { useLanguage } from '../../context/LanguageContext';
+import { CameraBarcodeScannerModal } from '../../components/pos/CameraBarcodeScannerModal';
 
 export const Products: React.FC = () => {
   const { t, language } = useLanguage();
@@ -55,6 +57,7 @@ export const Products: React.FC = () => {
   // Clear All Modal
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState<boolean>(false);
 
   const fetchProducts = async () => {
     try {
@@ -220,118 +223,103 @@ export const Products: React.FC = () => {
           {products.length > 0 && (
             <button
               onClick={() => setIsClearAllModalOpen(true)}
-              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
-              title="Remove / Delete all products from catalog"
+              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Trash2 className="w-4 h-4" />
-              <span>{t('remove_all_products')}</span>
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              <span>Clear All Products</span>
             </button>
           )}
 
           <button
-            onClick={handleOpenAddModal}
-            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-brand-600/20 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{t('add_new_product')}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search by English, தமிழ் பெயர், SKU, Barcode..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-brand-500 outline-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-          {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none"
-          >
-            <option value="all">{t('all')} Categories</option>
-            {categories.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          {/* Stock Status Filter */}
-          <select
-            value={stockStatusFilter}
-            onChange={e => setStockStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none"
-          >
-            <option value="all">{t('all')} Stock Status</option>
-            <option value="available">{t('available')}</option>
-            <option value="low_stock">{t('low_stock')}</option>
-            <option value="out_of_stock">{t('out_of_stock')}</option>
-          </select>
-
-          <button
             onClick={fetchProducts}
-            className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-colors"
+            className="p-2.5 text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
             title="Refresh List"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
+
+
         </div>
       </div>
 
-      {/* Products Table / Empty State */}
+      {/* Filter / Search Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search English name, தமிழ் பெயர், SKU or Barcode..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-brand-500 outline-none transition-all"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+              className="bg-transparent text-xs text-slate-700 font-semibold outline-none cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              {categories.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+            <select
+              value={stockStatusFilter}
+              onChange={e => setStockStatusFilter(e.target.value)}
+              className="bg-transparent text-xs text-slate-700 font-semibold outline-none cursor-pointer"
+            >
+              <option value="all">All Stock Status</option>
+              <option value="available">In Stock</option>
+              <option value="low_stock">Low Stock</option>
+              <option value="out_of_stock">Out of Stock</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Products Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        {filteredProducts.length === 0 ? (
-          <div className="py-16 px-4 text-center space-y-4">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
-              <Package className="w-8 h-8" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-black text-slate-900">
-                {products.length === 0 ? 'No products in catalog' : 'No matching products found'}
-              </h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                {products.length === 0
-                  ? 'Your store catalog is empty. Click below to add your first product with English and Tamil names.'
-                  : 'Try changing your search terms or filter selections.'}
-              </p>
-            </div>
-            {products.length === 0 && (
-              <button
-                onClick={handleOpenAddModal}
-                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-lg shadow-brand-600/25 transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ {t('add_new_product')}</span>
-              </button>
-            )}
+        {isLoading ? (
+          <div className="p-12 text-center text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-600" />
+            <p className="text-xs font-semibold">Loading product catalog...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="p-12 text-center">
+            <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-sm font-bold text-slate-700">No products found</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              Get started by adding your store products with English names, Tamil names, and wholesale/retail rates.
+            </p>
+            <button
+              onClick={handleOpenAddModal}
+              className="mt-4 px-4 py-2 bg-brand-50 text-brand-700 border border-brand-200 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add First Product</span>
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200/80">
-                  <th className="py-3 px-4">Product Name (English / தமிழ்)</th>
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                  <th className="py-3 px-4">Item Details (English & Tamil)</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">SKU / Barcode</th>
-                  <th className="py-3 px-4 text-right">Cost Price</th>
-                  <th className="py-3 px-4 text-right">
-                    <span className="text-indigo-600 font-extrabold">W-Rate</span>
-                    <span className="block text-[9px] text-slate-400 font-normal">Wholesale</span>
-                  </th>
-                  <th className="py-3 px-4 text-right">
-                    <span className="text-brand-600 font-extrabold">C-Rate</span>
-                    <span className="block text-[9px] text-slate-400 font-normal">Retail</span>
-                  </th>
+                  <th className="py-3 px-4 text-right">Cost (₹)</th>
+                  <th className="py-3 px-4 text-right text-indigo-700 bg-indigo-50/50">W-Rate (₹)</th>
+                  <th className="py-3 px-4 text-right text-emerald-700 bg-emerald-50/50">C-Rate (₹)</th>
                   <th className="py-3 px-4 text-center">Stock</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -339,44 +327,31 @@ export const Products: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredProducts.map(p => {
-                  const isLow = p.stock <= p.minimum_stock && p.stock > 0;
+                  const isLow = p.stock > 0 && p.stock <= p.minimum_stock;
                   const isOut = p.stock <= 0;
-                  const displayCrate = p.c_rate || p.selling_price || 0;
-                  const displayWrate = p.w_rate || p.selling_price || 0;
+
+                  const displayWrate = p.w_rate || p.selling_price;
+                  const displayCrate = p.c_rate || p.selling_price;
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          {p.image ? (
-                            <img
-                              src={p.image}
-                              alt={p.name}
-                              className="w-10 h-10 rounded-lg object-cover border border-slate-100 shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                              <Package className="w-5 h-5" />
-                            </div>
-                          )}
-                          <div className="space-y-0.5">
-                            <p className="font-bold text-slate-900 text-sm">{p.name}</p>
-                            {p.name_tamil ? (
-                              <p className="text-xs font-extrabold text-emerald-800 bg-emerald-50/80 px-1.5 py-0.2 rounded inline-block">
-                                {p.name_tamil}
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-slate-400 italic">No Tamil name</p>
-                            )}
-                            <p className="text-[10px] text-slate-400">Unit: {p.unit}</p>
+                        <div className="font-bold text-slate-800 text-sm">{p.name}</div>
+                        {p.name_tamil ? (
+                          <div className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-emerald-200">
+                            {p.name_tamil}
                           </div>
-                        </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">No Tamil name</span>
+                        )}
                       </td>
 
-                      <td className="py-3 px-4 font-semibold text-slate-600">{p.category}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-600">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded-md">{p.category}</span>
+                      </td>
 
                       <td className="py-3 px-4">
-                        <span className="font-mono text-xs font-semibold text-slate-800">{p.sku}</span>
+                        <span className="font-mono font-bold text-slate-700 block">{p.sku}</span>
                         {p.barcode && (
                           <span className="block font-mono text-[10px] text-slate-400">
                             {p.barcode}
@@ -546,7 +521,30 @@ export const Products: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Barcode (Optional)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">Barcode (Optional)</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const randomCode = '890' + Math.floor(100000000 + Math.random() * 900000000).toString();
+                      setBarcode(randomCode);
+                    }}
+                    className="text-[10px] text-brand-600 hover:text-brand-700 font-semibold"
+                  >
+                    Generate
+                  </button>
+                  <span className="text-slate-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsCameraScannerOpen(true)}
+                    className="text-[10px] text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1"
+                  >
+                    <Camera className="w-3 h-3" />
+                    Scan Camera
+                  </button>
+                </div>
+              </div>
               <input
                 type="text"
                 value={barcode}
@@ -712,6 +710,17 @@ export const Products: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Camera Barcode Scanner Modal for Product Form */}
+      <CameraBarcodeScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        onScan={async (scannedCode) => {
+          setBarcode(scannedCode);
+          setIsCameraScannerOpen(false);
+          return true;
+        }}
+      />
     </div>
   );
 };

@@ -6,6 +6,9 @@ import { CustomerSelectModal } from '../../components/pos/CustomerSelectModal';
 import { ShortcutHelpModal } from '../../components/pos/ShortcutHelpModal';
 import { UPIQrModal } from '../../components/pos/UPIQrModal';
 import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModal';
+import { CameraBarcodeScannerModal } from '../../components/pos/CameraBarcodeScannerModal';
+import { useGlobalBarcodeScanner } from '../../hooks/useGlobalBarcodeScanner';
+import { posSounds } from '../../utils/soundEffects';
 import { Product, Customer, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useSettings } from '../../context/SettingsContext';
@@ -43,6 +46,7 @@ export const Billing: React.FC = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isUpiQrModalOpen, setIsUpiQrModalOpen] = useState<boolean>(false);
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState<boolean>(false);
 
   // Receipt Modal State
   const [completedBill, setCompletedBill] = useState<Bill | null>(null);
@@ -178,6 +182,7 @@ export const Billing: React.FC = () => {
           alert(`Quantity exceeds available stock (${product.stock} ${product.unit}).`);
           return prev;
         }
+
         return {
           ...prev,
           items: [
@@ -202,16 +207,23 @@ export const Billing: React.FC = () => {
     });
   };
 
-  // Barcode / SKU Scan Handler
+  // Barcode / SKU Scan Handler with POS Sound feedback
   const handleBarcodeScan = async (code: string): Promise<boolean> => {
+    if (!code || !code.trim()) return false;
     const cleanCode = code.trim().toUpperCase();
 
-    // Check local product cache first
+    // Check local product cache first (by SKU or barcode)
     const localMatch = products.find(
-      p => p.sku.toUpperCase() === cleanCode || (p.barcode && p.barcode === cleanCode)
+      p => p.sku.toUpperCase() === cleanCode || (p.barcode && p.barcode.toUpperCase() === cleanCode)
     );
 
     if (localMatch) {
+      if (localMatch.stock <= 0) {
+        posSounds.playBeepError();
+        alert(`"${localMatch.name}" is out of stock!`);
+        return false;
+      }
+      posSounds.playBeepSuccess();
       handleAddProduct(localMatch, 1);
       return true;
     }
@@ -220,15 +232,31 @@ export const Billing: React.FC = () => {
     try {
       const res = await api.get<{ product: Product }>(`/products/lookup/${encodeURIComponent(cleanCode)}`);
       if (res.product) {
+        if (res.product.stock <= 0) {
+          posSounds.playBeepError();
+          alert(`"${res.product.name}" is out of stock!`);
+          return false;
+        }
+        posSounds.playBeepSuccess();
         handleAddProduct(res.product, 1);
         return true;
       }
     } catch {
+      posSounds.playBeepError();
       return false;
     }
 
+    posSounds.playBeepError();
     return false;
   };
+
+  // Global Hardware USB / Bluetooth Barcode Gun Scanner
+  useGlobalBarcodeScanner({
+    onScan: async (scannedCode) => {
+      await handleBarcodeScan(scannedCode);
+    },
+    enabled: !isCustomerModalOpen && !isReceiptModalOpen && !isCameraScannerOpen,
+  });
 
   const handleUpdateQuantity = (productId: number, qty: number) => {
     if (qty <= 0) {
@@ -320,6 +348,7 @@ export const Billing: React.FC = () => {
         settings: any;
       }>('/bills', payload);
 
+      posSounds.playBillComplete();
       setCompletedBill(res.bill);
       setCompletedBillItems(res.items);
       setIsReceiptModalOpen(true);
@@ -373,6 +402,12 @@ export const Billing: React.FC = () => {
         handleClearBill();
       }
 
+      // F3: Camera Barcode Scanner
+      if (e.key === 'F3') {
+        e.preventDefault();
+        setIsCameraScannerOpen(true);
+      }
+
       // F4: Customer Select
       if (e.key === 'F4') {
         e.preventDefault();
@@ -401,6 +436,7 @@ export const Billing: React.FC = () => {
         setIsShortcutsModalOpen(false);
         setIsUpiQrModalOpen(false);
         setIsReceiptModalOpen(false);
+        setIsCameraScannerOpen(false);
       }
     };
 
@@ -438,6 +474,7 @@ export const Billing: React.FC = () => {
             rateMode={activeSection.rateMode}
             onAddProduct={handleAddProduct}
             onBarcodeScan={handleBarcodeScan}
+            onOpenScanner={() => setIsCameraScannerOpen(true)}
           />
         </div>
 
@@ -496,6 +533,13 @@ export const Billing: React.FC = () => {
         amount={currentGrandTotal}
         settings={settings}
         onPaid={() => setIsUpiQrModalOpen(false)}
+      />
+
+      {/* Live Camera Barcode Scanner Modal */}
+      <CameraBarcodeScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        onScan={handleBarcodeScan}
       />
 
       {/* 4-inch Thermal Receipt Modal */}

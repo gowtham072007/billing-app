@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Barcode, Plus, AlertTriangle, Check, Layers, Tag } from 'lucide-react';
+import { Search, Barcode, Plus, Camera, Layers } from 'lucide-react';
 import { Product } from '../../types';
 
 interface ProductSearchGridProps {
@@ -8,6 +8,7 @@ interface ProductSearchGridProps {
   rateMode: 'c_rate' | 'w_rate';
   onAddProduct: (product: Product, quantity?: number, customPrice?: number, rateType?: 'c_rate' | 'w_rate') => void;
   onBarcodeScan: (code: string) => Promise<boolean>;
+  onOpenScanner?: () => void;
 }
 
 export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
@@ -16,11 +17,12 @@ export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
   rateMode,
   onAddProduct,
   onBarcodeScan,
+  onOpenScanner,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [barcodeFlash, setBarcodeFlash] = useState<string | null>(null);
+  const [barcodeFlash, setBarcodeFlash] = useState<{ text: string; isError?: boolean } | null>(null);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -46,13 +48,13 @@ export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
     const success = await onBarcodeScan(code);
 
     if (success) {
-      setBarcodeFlash(`Added: ${code}`);
+      setBarcodeFlash({ text: `✓ Added: ${code}` });
       setBarcodeInput('');
     } else {
-      setBarcodeFlash(`Not found: ${code}`);
+      setBarcodeFlash({ text: `✕ Not found: ${code}`, isError: true });
     }
 
-    setTimeout(() => setBarcodeFlash(null), 2000);
+    setTimeout(() => setBarcodeFlash(null), 2500);
   };
 
   // Filter products locally by English name, Tamil name, SKU, or barcode
@@ -76,29 +78,45 @@ export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
         {/* Barcode / SKU Instant Scanner */}
         <form
           onSubmit={handleBarcodeSubmit}
-          className="sm:col-span-5 relative flex items-center"
+          className="sm:col-span-6 relative flex items-center gap-1.5"
         >
-          <div className="absolute left-3 text-slate-400 pointer-events-none">
-            <Barcode className="w-5 h-5 text-emerald-600" />
+          <div className="relative flex-1">
+            <div className="absolute left-3 top-2.5 text-slate-400 pointer-events-none">
+              <Barcode className="w-5 h-5 text-emerald-600" />
+            </div>
+            <input
+              ref={barcodeInputRef}
+              id="pos-barcode-input"
+              data-barcode-input="true"
+              type="text"
+              value={barcodeInput}
+              onChange={e => setBarcodeInput(e.target.value)}
+              placeholder="Scan Barcode / SKU [F2]"
+              className="w-full pl-10 pr-14 py-2 bg-emerald-50/60 border-2 border-emerald-500/60 focus:border-emerald-600 focus:bg-white rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all shadow-sm"
+            />
+            <button
+              type="submit"
+              className="absolute right-1.5 top-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+            >
+              Add
+            </button>
           </div>
-          <input
-            ref={barcodeInputRef}
-            type="text"
-            value={barcodeInput}
-            onChange={e => setBarcodeInput(e.target.value)}
-            placeholder="Scan Barcode / SKU (Enter) [F2]"
-            className="w-full pl-10 pr-12 py-2.5 bg-emerald-50/60 border-2 border-emerald-500/60 focus:border-emerald-600 focus:bg-white rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 outline-none transition-all"
-          />
-          <button
-            type="submit"
-            className="absolute right-2 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors"
-          >
-            Add
-          </button>
+
+          {onOpenScanner && (
+            <button
+              type="button"
+              onClick={onOpenScanner}
+              title="Open Live Camera Scanner (F3)"
+              className="px-2.5 py-2 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm flex-shrink-0"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>Camera (F3)</span>
+            </button>
+          )}
         </form>
 
         {/* Product Name Search in English & Tamil */}
-        <div className="sm:col-span-7 relative flex items-center">
+        <div className="sm:col-span-6 relative flex items-center">
           <div className="absolute left-3 text-slate-400 pointer-events-none">
             <Search className="w-4 h-4" />
           </div>
@@ -108,15 +126,23 @@ export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Search English or தமிழ் பெயர்..."
-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl text-sm text-slate-800 placeholder-slate-400 outline-none transition-all shadow-sm"
+            className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 outline-none transition-all shadow-sm"
           />
         </div>
       </div>
 
       {barcodeFlash && (
-        <div className="px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg flex items-center gap-2 animate-fade-in shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span>{barcodeFlash}</span>
+        <div
+          className={`px-3 py-1.5 text-white text-xs font-semibold rounded-lg flex items-center gap-2 animate-fade-in shadow-sm ${
+            barcodeFlash.isError ? 'bg-rose-900 border border-rose-700' : 'bg-slate-900 border border-emerald-500/40'
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              barcodeFlash.isError ? 'bg-rose-400' : 'bg-emerald-400 animate-ping'
+            }`}
+          ></span>
+          <span>{barcodeFlash.text}</span>
         </div>
       )}
 
