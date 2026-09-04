@@ -124,6 +124,14 @@ export const translations = {
     thank_you: 'Thank You! Visit Again.',
     print_receipt: 'Print Receipt',
     reprint: 'Reprint',
+
+    // Section Billing
+    section: 'Section',
+    sections: 'Sections',
+    section_billing: '10 Section Billing',
+    active_section: 'Active Section',
+    empty_section: 'Empty',
+    clear_section: 'Clear Section',
   },
 
   ta: {
@@ -248,5 +256,13 @@ export const translations = {
     thank_you: 'நன்றி! மீண்டும் வருக.',
     print_receipt: 'ரசீது அச்சிடு',
     reprint: 'மறுஅச்சு (Reprint)',
+
+    // Section Billing
+    section: 'பிரிவு',
+    sections: 'பிரிவுகள்',
+    section_billing: '10 பிரிவு பில்லிங்',
+    active_section: 'நடப்பு பிரிவு',
+    empty_section: 'காலியானது',
+    clear_section: 'பிரிவை அழி',
   },
 };

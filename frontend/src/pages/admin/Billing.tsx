@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ProductSearchGrid } from '../../components/pos/ProductSearchGrid';
 import { BillCartTable, PosBillItem } from '../../components/pos/BillCartTable';
+import { BillSectionTabs, BillSectionData } from '../../components/pos/BillSectionTabs';
 import { CustomerSelectModal } from '../../components/pos/CustomerSelectModal';
 import { ShortcutHelpModal } from '../../components/pos/ShortcutHelpModal';
 import { UPIQrModal } from '../../components/pos/UPIQrModal';
@@ -8,6 +9,18 @@ import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModa
 import { Product, Customer, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useSettings } from '../../context/SettingsContext';
+
+const createEmptySection = (id: number, defaultTax: number = 0): BillSectionData => ({
+  id,
+  items: [],
+  selectedCustomer: null,
+  rateMode: 'c_rate',
+  discount: 0,
+  discountType: 'flat',
+  taxPercentage: defaultTax,
+  paymentMethod: 'cash',
+  paymentReference: '',
+});
 
 export const Billing: React.FC = () => {
   const { settings } = useSettings();
@@ -17,19 +30,13 @@ export const Billing: React.FC = () => {
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
 
-  // Rate Mode State: C-Rate (Retail) vs W-Rate (Wholesale)
-  const [rateMode, setRateMode] = useState<'c_rate' | 'w_rate'>('c_rate');
-
-  // Bill Workspace State
-  const [billItems, setBillItems] = useState<PosBillItem[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [discount, setDiscount] = useState<number>(0);
-  const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
-  const [taxPercentage, setTaxPercentage] = useState<number>(() => {
-    return Number(settings.default_tax_rate) || 0;
-  });
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card' | 'other'>('cash');
-  const [paymentReference, setPaymentReference] = useState<string>('');
+  // 10 Section Billing State
+  const [sections, setSections] = useState<BillSectionData[]>(() =>
+    Array.from({ length: 10 }, (_, i) =>
+      createEmptySection(i + 1, Number(settings.default_tax_rate) || 0)
+    )
+  );
+  const [activeSectionId, setActiveSectionId] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Modals State
@@ -41,6 +48,19 @@ export const Billing: React.FC = () => {
   const [completedBill, setCompletedBill] = useState<Bill | null>(null);
   const [completedBillItems, setCompletedBillItems] = useState<BillItem[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
+
+  // Active Section Pointer
+  const activeSection = sections.find(s => s.id === activeSectionId) || sections[0];
+
+  // Helper to update active section state
+  const updateActiveSection = useCallback(
+    (updater: (prevSec: BillSectionData) => BillSectionData) => {
+      setSections(prev =>
+        prev.map(s => (s.id === activeSectionId ? updater(s) : s))
+      );
+    },
+    [activeSectionId]
+  );
 
   // Fetch Catalog
   const fetchProducts = async () => {
@@ -65,16 +85,23 @@ export const Billing: React.FC = () => {
   // Update default tax when settings load
   useEffect(() => {
     if (settings.default_tax_rate !== undefined) {
-      setTaxPercentage(Number(settings.default_tax_rate) || 0);
+      const defaultTax = Number(settings.default_tax_rate) || 0;
+      setSections(prev =>
+        prev.map(s =>
+          s.items.length === 0 && s.taxPercentage === 0
+            ? { ...s, taxPercentage: defaultTax }
+            : s
+        )
+      );
     }
   }, [settings.default_tax_rate]);
 
-  // Handle Global Rate Mode Change
+  // Handle Global Rate Mode Change for Active Section
   const handleRateModeChange = (mode: 'c_rate' | 'w_rate') => {
-    setRateMode(mode);
-    // Update all existing items in cart to match the new rate mode
-    setBillItems(prev =>
-      prev.map(item => {
+    updateActiveSection(prev => ({
+      ...prev,
+      rateMode: mode,
+      items: prev.items.map(item => {
         const prod = products.find(p => p.id === item.product_id);
         const cPrice = item.c_rate || (prod ? prod.c_rate || prod.selling_price : item.price);
         const wPrice = item.w_rate || (prod ? prod.w_rate || prod.selling_price : item.price);
@@ -86,14 +113,15 @@ export const Billing: React.FC = () => {
           price: newPrice,
           total: item.quantity * newPrice,
         };
-      })
-    );
+      }),
+    }));
   };
 
-  // Toggle Rate for an individual item between C-Rate and W-Rate
+  // Toggle Rate for an individual item between C-Rate and W-Rate in Active Section
   const handleToggleItemRate = (productId: number) => {
-    setBillItems(prev =>
-      prev.map(item => {
+    updateActiveSection(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
         if (item.product_id !== productId) return item;
 
         const nextRateType = item.rate_type === 'w_rate' ? 'c_rate' : 'w_rate';
@@ -108,16 +136,16 @@ export const Billing: React.FC = () => {
           price: newPrice,
           total: item.quantity * newPrice,
         };
-      })
-    );
+      }),
+    }));
   };
 
-  // Add Product to Current Bill Cart
+  // Add Product to Active Section Bill Cart
   const handleAddProduct = (
     product: Product,
     quantity: number = 1,
     customPrice?: number,
-    itemRateType: 'c_rate' | 'w_rate' = rateMode
+    itemRateType: 'c_rate' | 'w_rate' = activeSection.rateMode
   ) => {
     if (product.stock <= 0) {
       alert(`"${product.name}" is out of stock!`);
@@ -128,8 +156,8 @@ export const Billing: React.FC = () => {
     const wPrice = Number(product.w_rate || product.selling_price || 0);
     const appliedPrice = customPrice !== undefined ? customPrice : (itemRateType === 'w_rate' ? wPrice : cPrice);
 
-    setBillItems(prev => {
-      const existing = prev.find(item => item.product_id === product.id);
+    updateActiveSection(prev => {
+      const existing = prev.items.find(item => item.product_id === product.id);
 
       if (existing) {
         const newQty = existing.quantity + quantity;
@@ -137,33 +165,39 @@ export const Billing: React.FC = () => {
           alert(`Cannot add more than available stock (${product.stock} ${product.unit}).`);
           return prev;
         }
-        return prev.map(item =>
-          item.product_id === product.id
-            ? { ...item, quantity: newQty, total: newQty * item.price }
-            : item
-        );
+        return {
+          ...prev,
+          items: prev.items.map(item =>
+            item.product_id === product.id
+              ? { ...item, quantity: newQty, total: newQty * item.price }
+              : item
+          ),
+        };
       } else {
         if (quantity > product.stock) {
           alert(`Quantity exceeds available stock (${product.stock} ${product.unit}).`);
           return prev;
         }
-        return [
+        return {
           ...prev,
-          {
-            product_id: product.id,
-            product_name: product.name,
-            product_name_tamil: product.name_tamil || null,
-            sku: product.sku,
-            unit: product.unit,
-            quantity,
-            price: appliedPrice,
-            rate_type: itemRateType,
-            c_rate: cPrice,
-            w_rate: wPrice,
-            total: quantity * appliedPrice,
-            available_stock: product.stock,
-          },
-        ];
+          items: [
+            ...prev.items,
+            {
+              product_id: product.id,
+              product_name: product.name,
+              product_name_tamil: product.name_tamil || null,
+              sku: product.sku,
+              unit: product.unit,
+              quantity,
+              price: appliedPrice,
+              rate_type: itemRateType,
+              c_rate: cPrice,
+              w_rate: wPrice,
+              total: quantity * appliedPrice,
+              available_stock: product.stock,
+            },
+          ],
+        };
       }
     });
   };
@@ -202,8 +236,9 @@ export const Billing: React.FC = () => {
       return;
     }
 
-    setBillItems(prev =>
-      prev.map(item => {
+    updateActiveSection(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
         if (item.product_id === productId) {
           if (qty > item.available_stock) {
             alert(`Maximum available stock is ${item.available_stock} ${item.unit}.`);
@@ -216,27 +251,43 @@ export const Billing: React.FC = () => {
           };
         }
         return item;
-      })
-    );
+      }),
+    }));
   };
 
   const handleRemoveItem = (productId: number) => {
-    setBillItems(prev => prev.filter(item => item.product_id !== productId));
+    updateActiveSection(prev => ({
+      ...prev,
+      items: prev.items.filter(item => item.product_id !== productId),
+    }));
   };
 
   const handleClearBill = useCallback(() => {
-    if (billItems.length === 0) return;
-    if (window.confirm('Are you sure you want to clear the current bill cart?')) {
-      setBillItems([]);
-      setSelectedCustomer(null);
-      setDiscount(0);
-      setPaymentReference('');
+    if (activeSection.items.length === 0) return;
+    if (window.confirm(`Are you sure you want to clear Section ${activeSectionId}?`)) {
+      setSections(prev =>
+        prev.map(s =>
+          s.id === activeSectionId
+            ? createEmptySection(activeSectionId, Number(settings.default_tax_rate) || 0)
+            : s
+        )
+      );
     }
-  }, [billItems.length]);
+  }, [activeSection.items.length, activeSectionId, settings.default_tax_rate]);
 
-  // Complete and Submit Bill
+  const handleClearSection = (id: number) => {
+    setSections(prev =>
+      prev.map(s =>
+        s.id === id
+          ? createEmptySection(id, Number(settings.default_tax_rate) || 0)
+          : s
+      )
+    );
+  };
+
+  // Complete and Submit Bill for Active Section
   const handleCompleteBill = async (printImmediate: boolean = false) => {
-    if (billItems.length === 0) {
+    if (activeSection.items.length === 0) {
       alert('Please add at least one product to the bill.');
       return;
     }
@@ -245,21 +296,21 @@ export const Billing: React.FC = () => {
 
     try {
       const payload = {
-        customer_id: selectedCustomer ? selectedCustomer.id : null,
-        customer_name: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
-        customer_phone: selectedCustomer ? selectedCustomer.phone : null,
-        items: billItems.map(item => ({
+        customer_id: activeSection.selectedCustomer ? activeSection.selectedCustomer.id : null,
+        customer_name: activeSection.selectedCustomer ? activeSection.selectedCustomer.name : 'Walk-in Customer',
+        customer_phone: activeSection.selectedCustomer ? activeSection.selectedCustomer.phone : null,
+        items: activeSection.items.map(item => ({
           product_id: item.product_id,
           product_name_tamil: item.product_name_tamil || null,
           quantity: item.quantity,
           price: item.price,
           rate_type: item.rate_type,
         })),
-        discount: Number(discount) || 0,
-        discount_type: discountType,
-        tax_percentage: Number(taxPercentage) || 0,
-        payment_method: paymentMethod,
-        payment_reference: paymentReference.trim() || undefined,
+        discount: Number(activeSection.discount) || 0,
+        discount_type: activeSection.discountType,
+        tax_percentage: Number(activeSection.taxPercentage) || 0,
+        payment_method: activeSection.paymentMethod,
+        payment_reference: activeSection.paymentReference.trim() || undefined,
       };
 
       const res = await api.post<{
@@ -273,11 +324,14 @@ export const Billing: React.FC = () => {
       setCompletedBillItems(res.items);
       setIsReceiptModalOpen(true);
 
-      // Reset Current Bill Form
-      setBillItems([]);
-      setSelectedCustomer(null);
-      setDiscount(0);
-      setPaymentReference('');
+      // Reset Active Section Form only
+      setSections(prev =>
+        prev.map(s =>
+          s.id === activeSectionId
+            ? createEmptySection(activeSectionId, Number(settings.default_tax_rate) || 0)
+            : s
+        )
+      );
 
       // Refresh product stock counts
       fetchProducts();
@@ -298,7 +352,22 @@ export const Billing: React.FC = () => {
   // Global POS Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F1: Clear Bill
+      // Alt + 1..9 or Alt + 0: Switch Section
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.key >= '1' && e.key <= '9') {
+          e.preventDefault();
+          const targetSection = parseInt(e.key, 10);
+          setActiveSectionId(targetSection);
+          return;
+        }
+        if (e.key === '0' || e.code === 'Digit0') {
+          e.preventDefault();
+          setActiveSectionId(10);
+          return;
+        }
+      }
+
+      // F1: Clear Current Active Section Bill
       if (e.key === 'F1') {
         e.preventDefault();
         handleClearBill();
@@ -313,7 +382,7 @@ export const Billing: React.FC = () => {
       // F8: Complete Bill
       if (e.key === 'F8') {
         e.preventDefault();
-        if (billItems.length > 0 && !isSubmitting) {
+        if (activeSection.items.length > 0 && !isSubmitting) {
           handleCompleteBill(false);
         }
       }
@@ -321,7 +390,7 @@ export const Billing: React.FC = () => {
       // F9: Complete & Print
       if (e.key === 'F9') {
         e.preventDefault();
-        if (billItems.length > 0 && !isSubmitting) {
+        if (activeSection.items.length > 0 && !isSubmitting) {
           handleCompleteBill(true);
         }
       }
@@ -337,44 +406,52 @@ export const Billing: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [billItems, isSubmitting, handleClearBill]);
+  }, [activeSection, isSubmitting, handleClearBill]);
 
   // Calculate current grand total for UPI QR
-  const currentSubtotal = billItems.reduce((s, i) => s + i.total, 0);
+  const currentSubtotal = activeSection.items.reduce((s, i) => s + i.total, 0);
   const currentDiscount =
-    discountType === 'percentage'
-      ? (currentSubtotal * (discount || 0)) / 100
-      : discount || 0;
+    activeSection.discountType === 'percentage'
+      ? (currentSubtotal * (activeSection.discount || 0)) / 100
+      : activeSection.discount || 0;
   const currentTaxable = Math.max(0, currentSubtotal - currentDiscount);
-  const currentTax = (currentTaxable * (taxPercentage || 0)) / 100;
+  const currentTax = (currentTaxable * (activeSection.taxPercentage || 0)) / 100;
   const currentGrandTotal = Math.round(currentTaxable + currentTax);
 
   return (
-    <div className="h-[calc(100vh-2rem)] p-3 sm:p-4 max-w-7xl mx-auto flex flex-col space-y-3">
+    <div className="h-[calc(100vh-2rem)] p-3 sm:p-4 max-w-7xl mx-auto flex flex-col space-y-2.5">
+      {/* 10 Section Billing Tabs Switcher Header */}
+      <BillSectionTabs
+        sections={sections}
+        activeSectionId={activeSectionId}
+        onSelectSection={setActiveSectionId}
+        onClearSection={handleClearSection}
+      />
+
       {/* POS Billing Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         {/* Left: Product Catalog Grid & Barcode Scanner */}
         <div className="lg:col-span-7 h-full flex flex-col min-h-0">
           <ProductSearchGrid
             products={products}
             categories={categories}
-            rateMode={rateMode}
+            rateMode={activeSection.rateMode}
             onAddProduct={handleAddProduct}
             onBarcodeScan={handleBarcodeScan}
           />
         </div>
 
-        {/* Right: Bill Cart Table, Calculations & Payment */}
+        {/* Right: Bill Cart Table, Calculations & Payment for Active Section */}
         <div className="lg:col-span-5 h-full flex flex-col min-h-0">
           <BillCartTable
-            items={billItems}
-            customer={selectedCustomer}
-            rateMode={rateMode}
-            discount={discount}
-            discountType={discountType}
-            taxPercentage={taxPercentage}
-            paymentMethod={paymentMethod}
-            paymentReference={paymentReference}
+            items={activeSection.items}
+            customer={activeSection.selectedCustomer}
+            rateMode={activeSection.rateMode}
+            discount={activeSection.discount}
+            discountType={activeSection.discountType}
+            taxPercentage={activeSection.taxPercentage}
+            paymentMethod={activeSection.paymentMethod}
+            paymentReference={activeSection.paymentReference}
             isSubmitting={isSubmitting}
             settings={settings}
             onRateModeChange={handleRateModeChange}
@@ -384,11 +461,11 @@ export const Billing: React.FC = () => {
             onSelectCustomerClick={() => setIsCustomerModalOpen(true)}
             onClearBill={handleClearBill}
             onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
-            onDiscountChange={setDiscount}
-            onDiscountTypeChange={setDiscountType}
-            onTaxPercentageChange={setTaxPercentage}
-            onPaymentMethodChange={setPaymentMethod}
-            onPaymentReferenceChange={setPaymentReference}
+            onDiscountChange={val => updateActiveSection(s => ({ ...s, discount: val }))}
+            onDiscountTypeChange={type => updateActiveSection(s => ({ ...s, discountType: type }))}
+            onTaxPercentageChange={val => updateActiveSection(s => ({ ...s, taxPercentage: val }))}
+            onPaymentMethodChange={method => updateActiveSection(s => ({ ...s, paymentMethod: method }))}
+            onPaymentReferenceChange={ref => updateActiveSection(s => ({ ...s, paymentReference: ref }))}
             onCompleteBill={handleCompleteBill}
             onOpenUpiQr={() => setIsUpiQrModalOpen(true)}
           />
@@ -399,9 +476,9 @@ export const Billing: React.FC = () => {
       <CustomerSelectModal
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
-        selectedCustomerId={selectedCustomer?.id}
+        selectedCustomerId={activeSection.selectedCustomer?.id}
         onSelectCustomer={cust => {
-          setSelectedCustomer(cust);
+          updateActiveSection(s => ({ ...s, selectedCustomer: cust }));
           setIsCustomerModalOpen(false);
         }}
       />

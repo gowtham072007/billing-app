@@ -9,10 +9,11 @@ interface ShortcutHelpModalProps {
 
 export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, onClose }) => {
   const shortcuts = [
-    { key: 'F1', label: 'New / Clear Bill', desc: 'Resets the current POS cart to a fresh bill' },
+    { key: 'Alt + 1..0', label: 'Switch Bill Section (1 - 10)', desc: 'Instantly jump between 10 concurrent customer bill workspaces' },
+    { key: 'F1', label: 'New / Clear Bill', desc: 'Resets the current active section to a fresh bill' },
     { key: 'F2', label: 'Focus Barcode / SKU Scanner', desc: 'Instantly focuses the scanner input field' },
     { key: 'F4', label: 'Select / Add Customer', desc: 'Opens the customer lookup & quick-create modal' },
-    { key: 'F8', label: 'Complete Bill', desc: 'Saves the bill and decrements stock' },
+    { key: 'F8', label: 'Complete Bill', desc: 'Saves the current section bill and decrements stock' },
     { key: 'F9', label: 'Complete & Print Bill', desc: 'Saves bill and immediately opens the 4-inch thermal print dialog' },
     { key: 'Esc', label: 'Close / Cancel', desc: 'Closes any active modal or drops focus' },
   ];
