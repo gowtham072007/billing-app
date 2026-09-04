@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { AdminSidebar } from './components/common/AdminSidebar';
 import { Navbar } from './components/common/Navbar';
+import { SplashScreen } from './components/common/SplashScreen';
 
 // Admin Pages
 import { Dashboard } from './pages/admin/Dashboard';
@@ -71,21 +72,22 @@ export const App: React.FC = () => {
 
   return (
     <Routes>
-      {/* Root redirect based on role */}
+      {/* Root Route: Display Logo Animation Intro first, then transition to Sign In (/login) */}
       <Route
         path="/"
         element={
-          isAuthenticated ? (
-            isAdmin ? (
-              <Navigate to="/admin/dashboard" replace />
-            ) : (
-              <Navigate to="/customer/products" replace />
-            )
-          ) : (
-            <Navigate to="/customer/products" replace />
-          )
+          <SplashScreen
+            redirectPath={
+              isAuthenticated
+                ? isAdmin
+                  ? '/admin/dashboard'
+                  : '/customer/products'
+                : '/login'
+            }
+          />
         }
       />
+      <Route path="/splash" element={<SplashScreen redirectPath="/login" />} />
 
       {/* Auth Public Routes */}
       <Route path="/login" element={<Login />} />
