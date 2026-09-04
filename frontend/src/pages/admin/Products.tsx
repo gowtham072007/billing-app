@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Check,
   Wand2,
+  Upload,
 } from 'lucide-react';
 import { Product } from '../../types';
 import { api } from '../../api/client';
@@ -60,7 +61,10 @@ export const Products: React.FC = () => {
   const [unit, setUnit] = useState<string>('pcs');
   const [image, setImage] = useState<string>('');
   const [isImageManuallyEdited, setIsImageManuallyEdited] = useState<boolean>(false);
+  const [isCustomUploaded, setIsCustomUploaded] = useState<boolean>(false);
   const [showCustomImageInput, setShowCustomImageInput] = useState<boolean>(false);
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [formError, setFormError] = useState<string>('');
 
@@ -106,6 +110,7 @@ export const Products: React.FC = () => {
     setUnit('pcs');
     setImage(getAutoProductImage('', '', defaultCat));
     setIsImageManuallyEdited(false);
+    setIsCustomUploaded(false);
     setShowCustomImageInput(false);
     setStatus('active');
     setFormError('');
@@ -128,6 +133,7 @@ export const Products: React.FC = () => {
     setUnit(p.unit);
     setImage(p.image || getAutoProductImage(p.name, p.name_tamil, p.category));
     setIsImageManuallyEdited(Boolean(p.image));
+    setIsCustomUploaded(Boolean(p.image?.startsWith('data:')));
     setShowCustomImageInput(false);
     setStatus(p.status);
     setFormError('');
@@ -159,12 +165,73 @@ export const Products: React.FC = () => {
   const handleSelectPreset = (imgUrl: string) => {
     setImage(imgUrl);
     setIsImageManuallyEdited(true);
+    setIsCustomUploaded(false);
   };
 
   const handleAutoDetectImage = () => {
     const autoImg = getAutoProductImage(name, nameTamil, category);
     setImage(autoImg);
     setIsImageManuallyEdited(false);
+    setIsCustomUploaded(false);
+  };
+
+  // Upload photo from device (File picker / Phone Camera / Gallery) with automatic canvas compression
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, WEBP, etc.)');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // High quality responsive canvas compression to max 600px for speed & lightweight payload
+        const canvas = document.createElement('canvas');
+        const maxDim = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setImage(compressedDataUrl);
+          setIsImageManuallyEdited(true);
+          setIsCustomUploaded(true);
+        }
+        setIsUploadingImage(false);
+      };
+      img.onerror = () => {
+        setIsUploadingImage(false);
+        alert('Failed to process image file.');
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      setIsUploadingImage(false);
+      alert('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -541,54 +608,95 @@ export const Products: React.FC = () => {
               </span>
             </div>
 
-            {/* Product Picture Auto-Selection & Live Preview Box */}
-            <div className="sm:col-span-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
+            {/* Product Picture Auto-Selection & Upload Box */}
+            <div className="sm:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3.5">
+              {/* Hidden File Input for Device/Camera Upload */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-brand-600" />
                   <label className="text-xs font-extrabold text-slate-800">
-                    Product Picture (தானியங்கி படம் / Auto-Set Picture)
+                    Product Picture (தயாரிப்பு படம் / Product Photo)
                   </label>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAutoDetectImage}
-                  className="text-[11px] font-bold text-brand-700 hover:text-brand-800 flex items-center gap-1 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                  title="Auto-match picture based on product name"
-                >
-                  <Wand2 className="w-3.5 h-3.5 text-brand-600" />
-                  <span>Auto-Set Picture</span>
-                </button>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Upload Photo Button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-brand-600/20 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+                    title="Upload photo from your computer or phone gallery / camera"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-white" />
+                    <span>{isUploadingImage ? 'Uploading...' : t('upload_photo')}</span>
+                  </button>
+
+                  {/* Auto-Set Picture Button */}
+                  <button
+                    type="button"
+                    onClick={handleAutoDetectImage}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Auto-match picture based on product name"
+                  >
+                    <Wand2 className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Auto-Set</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3.5">
-                {/* Active Image Thumbnail */}
-                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-brand-500 shadow-md bg-white shrink-0 group">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                {/* Active Image Thumbnail with Click-to-Upload & Hover Overlay */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 border-brand-500 shadow-md bg-white shrink-0 group cursor-pointer"
+                  title="Click to Upload / Change Photo"
+                >
                   <img
                     src={image || getAutoProductImage(name, nameTamil, category)}
                     alt={name || 'Product Preview'}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = getAutoProductImage(name, nameTamil, category);
                     }}
                   />
-                  <div className="absolute inset-x-0 bottom-0 bg-slate-900/80 backdrop-blur-xs py-0.5 text-center">
+
+                  {/* Hover upload prompt overlay */}
+                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2 text-center backdrop-blur-2xs">
+                    <Upload className="w-5 h-5 mb-1 animate-bounce" />
+                    <span className="text-[10px] font-bold leading-tight">Change / Upload Photo</span>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="absolute inset-x-0 bottom-0 bg-slate-900/85 backdrop-blur-xs py-0.5 text-center pointer-events-none">
                     <span className="text-[9px] font-bold text-white uppercase tracking-wider">
-                      {isImageManuallyEdited ? 'Selected' : '✨ Auto Set'}
+                      {isCustomUploaded
+                        ? '📁 Uploaded'
+                        : isImageManuallyEdited
+                        ? 'Selected'
+                        : '✨ Auto Set'}
                     </span>
                   </div>
                 </div>
 
                 {/* Suggestions & Preset Picker */}
-                <div className="flex-1 space-y-2 w-full">
+                <div className="flex-1 space-y-2.5 w-full">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-600">
-                      Suggested Matching Pictures (Click to select):
+                    <span className="text-[11px] font-bold text-slate-700">
+                      Suggested Matching Pictures (Or choose from below):
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowCustomImageInput(!showCustomImageInput)}
-                      className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 underline"
+                      className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 underline cursor-pointer"
                     >
                       {showCustomImageInput ? 'Hide URL' : 'Custom Image URL'}
                     </button>
@@ -599,7 +707,10 @@ export const Products: React.FC = () => {
                       <button
                         key={idx}
                         type="button"
-                        onClick={() => handleSelectPreset(preset.imageUrl)}
+                        onClick={() => {
+                          handleSelectPreset(preset.imageUrl);
+                          setIsCustomUploaded(false);
+                        }}
                         className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
                           image === preset.imageUrl
                             ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
@@ -622,19 +733,24 @@ export const Products: React.FC = () => {
                   </div>
 
                   {showCustomImageInput && (
-                    <div className="pt-1.5 animate-fade-in">
+                    <div className="pt-1 animate-fade-in">
                       <input
                         type="url"
                         value={image}
                         onChange={(e) => {
                           setImage(e.target.value);
                           setIsImageManuallyEdited(true);
+                          setIsCustomUploaded(false);
                         }}
                         placeholder="Paste custom image URL (https://...)"
                         className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:border-brand-500 outline-none"
                       />
                     </div>
                   )}
+
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <span>💡 Tap <strong>Upload Photo</strong> to choose any picture from your device or take a camera snap.</span>
+                  </p>
                 </div>
               </div>
             </div>

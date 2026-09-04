@@ -103,6 +103,8 @@ export const translations = {
     out_of_stock: 'Out of Stock',
     add_new_product: '+ Add New Product',
     remove_all_products: 'Remove All Products',
+    upload_photo: 'Upload Photo',
+    choose_photo: 'Choose File / Photo',
 
     // Stock Management
     stock_management: 'Stock Management',
@@ -246,6 +248,8 @@ export const translations = {
     out_of_stock: 'கையிருப்பு இல்லை',
     add_new_product: '+ புதிய பொருள் சேர்',
     remove_all_products: 'அனைத்து பொருட்களையும் நீக்கு',
+    upload_photo: 'படம் பதிவேற்று (Upload Photo)',
+    choose_photo: 'படத்தை தேர்வு செய்',
 
     // Stock Management
     stock_management: 'சரக்கு இருப்பு மேலாண்மை',
