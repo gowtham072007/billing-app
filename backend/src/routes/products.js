@@ -109,6 +109,116 @@ router.get('/lookup/:code', (req, res, next) => {
   }
 });
 
+// Helper to search real product images from web & OpenFoodFacts
+async function searchWebProductImages(query, barcode) {
+  const images = [];
+
+  // 1. If barcode provided, query Open Food Facts
+  if (barcode && barcode.trim()) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      const offRes = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode.trim())}.json`, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'QuickBillPOS/1.0 (contact@vilmanistore.com)' }
+      });
+      clearTimeout(timeout);
+      if (offRes.ok) {
+        const offData = await offRes.json();
+        const pImg = offData.product?.image_front_url || offData.product?.image_url || offData.product?.image_small_url;
+        if (pImg) {
+          images.push(pImg);
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Query web image search engine for real product packaging photos
+  if (query && query.trim()) {
+    try {
+      const cleanQ = query.trim().replace(/[^\w\s\u0B80-\u0BFF]/gi, ' ');
+      const searchUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(cleanQ + ' product pack')}&form=HDRSC2&first=1`;
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(searchUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const html = await res.text();
+        const murlRegex = /murl&quot;:&quot;(https:[^&]+)&quot;/gi;
+        let m;
+        while ((m = murlRegex.exec(html)) !== null) {
+          const url = m[1];
+          if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+            images.push(url);
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 3. Fallback to Wikimedia Commons
+    if (images.length === 0) {
+      try {
+        const wikiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|thumburl&iiurlwidth=600&format=json`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const wikiRes = await fetch(wikiUrl, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'QuickBillPOS/1.0' }
+        });
+        clearTimeout(timeout);
+        if (wikiRes.ok) {
+          const wikiData = await wikiRes.json();
+          const pages = wikiData.query?.pages || {};
+          for (const p of Object.values(pages)) {
+            const u = p.imageinfo?.[0]?.thumburl || p.imageinfo?.[0]?.url;
+            if (u && !u.endsWith('.svg') && !u.endsWith('.ogg')) {
+              images.push(u);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  const uniqueImages = Array.from(new Set(images)).slice(0, 10);
+  return {
+    results: uniqueImages,
+    bestImage: uniqueImages[0] || null,
+  };
+}
+
+// GET /api/products/search-image (Search real product images on Google / Web)
+router.get('/search-image', async (req, res) => {
+  try {
+    const q = req.query.q || req.query.query || '';
+    const barcode = req.query.barcode || '';
+    const data = await searchWebProductImages(q, barcode);
+    res.json(data);
+  } catch (err) {
+    res.json({ results: [], bestImage: null });
+  }
+});
+
+// POST /api/products/search-image
+router.post('/search-image', async (req, res) => {
+  try {
+    const q = req.body.q || req.body.query || '';
+    const barcode = req.body.barcode || '';
+    const data = await searchWebProductImages(q, barcode);
+    res.json(data);
+  } catch (err) {
+    res.json({ results: [], bestImage: null });
+  }
+});
+
 // GET /api/products/:id (Get single product details)
 router.get('/:id', (req, res, next) => {
   try {

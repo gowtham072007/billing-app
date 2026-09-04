@@ -18,6 +18,7 @@ import {
   Check,
   Wand2,
   Upload,
+  Globe,
 } from 'lucide-react';
 import { Product } from '../../types';
 import { api } from '../../api/client';
@@ -64,7 +65,10 @@ export const Products: React.FC = () => {
   const [isCustomUploaded, setIsCustomUploaded] = useState<boolean>(false);
   const [showCustomImageInput, setShowCustomImageInput] = useState<boolean>(false);
   const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const [webImageResults, setWebImageResults] = useState<string[]>([]);
+  const [isSearchingWebImage, setIsSearchingWebImage] = useState<boolean>(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [formError, setFormError] = useState<string>('');
 
@@ -93,6 +97,39 @@ export const Products: React.FC = () => {
     fetchProducts();
   }, [selectedCategory, stockStatusFilter]);
 
+  // Search product images on Google / Web & OpenFoodFacts
+  const fetchWebProductImage = async (
+    searchTermQuery: string,
+    barcodeVal?: string,
+    forceAutoSet: boolean = false
+  ) => {
+    const q = searchTermQuery.trim();
+    if (!q && !barcodeVal) return;
+
+    setIsSearchingWebImage(true);
+    try {
+      const res = await api.get<{ results: string[]; bestImage: string | null }>(
+        '/products/search-image',
+        { q, barcode: barcodeVal || undefined }
+      );
+
+      if (res.results && res.results.length > 0) {
+        setWebImageResults(res.results);
+        if (res.bestImage && (!isImageManuallyEdited || forceAutoSet)) {
+          setImage(res.bestImage);
+          if (forceAutoSet) {
+            setIsImageManuallyEdited(false);
+            setIsCustomUploaded(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Web image search failed:', err);
+    } finally {
+      setIsSearchingWebImage(false);
+    }
+  };
+
   const handleOpenAddModal = () => {
     setIsEditing(false);
     setCurrentId(null);
@@ -112,6 +149,8 @@ export const Products: React.FC = () => {
     setIsImageManuallyEdited(false);
     setIsCustomUploaded(false);
     setShowCustomImageInput(false);
+    setWebImageResults([]);
+    setIsSearchingWebImage(false);
     setStatus('active');
     setFormError('');
     setIsModalOpen(true);
@@ -135,16 +174,25 @@ export const Products: React.FC = () => {
     setIsImageManuallyEdited(Boolean(p.image));
     setIsCustomUploaded(Boolean(p.image?.startsWith('data:')));
     setShowCustomImageInput(false);
+    setWebImageResults([]);
+    setIsSearchingWebImage(false);
     setStatus(p.status);
     setFormError('');
     setIsModalOpen(true);
   };
 
-  // Automatically update product image when typing name if not manually overridden
+  // Automatically update product image when typing name if not manually overridden & fetch from Google/Web
   const handleNameChange = (val: string) => {
     setName(val);
     if (!isImageManuallyEdited) {
       setImage(getAutoProductImage(val, nameTamil, category));
+    }
+    // Debounced automatic Google / Web search
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (val.trim().length >= 3) {
+      searchTimeoutRef.current = setTimeout(() => {
+        fetchWebProductImage(val, barcode, false);
+      }, 650);
     }
   };
 
@@ -152,6 +200,12 @@ export const Products: React.FC = () => {
     setNameTamil(val);
     if (!isImageManuallyEdited) {
       setImage(getAutoProductImage(name, val, category));
+    }
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (val.trim().length >= 3) {
+      searchTimeoutRef.current = setTimeout(() => {
+        fetchWebProductImage(name || val, barcode, false);
+      }, 650);
     }
   };
 
@@ -173,6 +227,13 @@ export const Products: React.FC = () => {
     setImage(autoImg);
     setIsImageManuallyEdited(false);
     setIsCustomUploaded(false);
+    if (name.trim() || nameTamil.trim() || barcode.trim()) {
+      fetchWebProductImage(name || nameTamil, barcode, true);
+    }
+  };
+
+  const handleSearchGoogleImage = () => {
+    fetchWebProductImage(name || nameTamil, barcode, true);
   };
 
   // Upload photo from device (File picker / Phone Camera / Gallery) with automatic canvas compression
@@ -623,11 +684,27 @@ export const Products: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <ImageIcon className="w-4 h-4 text-brand-600" />
                   <label className="text-xs font-extrabold text-slate-800">
-                    Product Picture (தயாரிப்பு படம் / Product Photo)
+                    Product Picture (கூகுள் படம் / Google & Web Auto-Set)
                   </label>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* Google / Web Search Button */}
+                  <button
+                    type="button"
+                    onClick={handleSearchGoogleImage}
+                    disabled={isSearchingWebImage || (!name.trim() && !nameTamil.trim() && !barcode.trim())}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+                    title="Search Google & Web for real product photos"
+                  >
+                    {isSearchingWebImage ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Globe className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isSearchingWebImage ? 'Searching...' : 'Google Image Search'}</span>
+                  </button>
+
                   {/* Upload Photo Button */}
                   <button
                     type="button"
@@ -680,6 +757,8 @@ export const Products: React.FC = () => {
                     <span className="text-[9px] font-bold text-white uppercase tracking-wider">
                       {isCustomUploaded
                         ? '📁 Uploaded'
+                        : webImageResults.includes(image)
+                        ? '🌐 Google Web'
                         : isImageManuallyEdited
                         ? 'Selected'
                         : '✨ Auto Set'}
@@ -687,11 +766,23 @@ export const Products: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Suggestions & Preset Picker */}
+                {/* Suggestions & Preset / Web Image Picker */}
                 <div className="flex-1 space-y-2.5 w-full">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-700">
-                      Suggested Matching Pictures (Or choose from below):
+                    <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                      {isSearchingWebImage ? (
+                        <span className="text-blue-600 flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          <span>Searching Google & Web product images...</span>
+                        </span>
+                      ) : webImageResults.length > 0 ? (
+                        <span className="text-blue-700 font-extrabold flex items-center gap-1">
+                          <Globe className="w-3 h-3 text-blue-600" />
+                          <span>Google & Web Images found for "{name || nameTamil}":</span>
+                        </span>
+                      ) : (
+                        <span>Suggested Matching Pictures (Click to select):</span>
+                      )}
                     </span>
                     <button
                       type="button"
@@ -702,34 +793,66 @@ export const Products: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Image Thumbnails Grid (Web search results OR Preset library) */}
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                    {getSuggestedImages(name, nameTamil, category).map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          handleSelectPreset(preset.imageUrl);
-                          setIsCustomUploaded(false);
-                        }}
-                        className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
-                          image === preset.imageUrl
-                            ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
-                            : 'border-slate-200 hover:border-brand-400'
-                        }`}
-                        title={preset.alt}
-                      >
-                        <img
-                          src={preset.imageUrl}
-                          alt={preset.alt}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                        {image === preset.imageUrl && (
-                          <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
-                            <Check className="w-2.5 h-2.5" />
-                          </div>
-                        )}
-                      </button>
-                    ))}
+                    {webImageResults.length > 0
+                      ? webImageResults.slice(0, 6).map((webUrl, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              handleSelectPreset(webUrl);
+                              setIsCustomUploaded(false);
+                            }}
+                            className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
+                              image === webUrl
+                                ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
+                                : 'border-slate-200 hover:border-brand-400'
+                            }`}
+                            title={`Web Image Result ${idx + 1}`}
+                          >
+                            <img
+                              src={webUrl}
+                              alt={`Web result ${idx + 1}`}
+                              className="w-full h-full object-cover rounded-lg"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                            {image === webUrl && (
+                              <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
+                                <Check className="w-2.5 h-2.5" />
+                              </div>
+                            )}
+                          </button>
+                        ))
+                      : getSuggestedImages(name, nameTamil, category).map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              handleSelectPreset(preset.imageUrl);
+                              setIsCustomUploaded(false);
+                            }}
+                            className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
+                              image === preset.imageUrl
+                                ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
+                                : 'border-slate-200 hover:border-brand-400'
+                            }`}
+                            title={preset.alt}
+                          >
+                            <img
+                              src={preset.imageUrl}
+                              alt={preset.alt}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                            {image === preset.imageUrl && (
+                              <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
+                                <Check className="w-2.5 h-2.5" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
                   </div>
 
                   {showCustomImageInput && (
@@ -749,7 +872,7 @@ export const Products: React.FC = () => {
                   )}
 
                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <span>💡 Tap <strong>Upload Photo</strong> to choose any picture from your device or take a camera snap.</span>
+                    <span>💡 <strong>Google Image Search</strong> automatically collects real packshot pictures as you type. Tap <strong>Upload Photo</strong> for custom device files.</span>
                   </p>
                 </div>
               </div>
