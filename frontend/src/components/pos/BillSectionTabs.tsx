@@ -1,7 +1,8 @@
-import React from 'react';
-import { Layers, ShoppingBag, User, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Layers, ShoppingBag, User, CheckCircle2, Printer } from 'lucide-react';
 import { Customer } from '../../types';
 import { PosBillItem } from './BillCartTable';
+import { getSavedPrinterName } from '../../utils/thermalPrinter';
 
 export interface BillSectionData {
   id: number; // 1 to 10
@@ -27,6 +28,16 @@ export const BillSectionTabs: React.FC<BillSectionTabsProps> = ({
   activeSectionId,
   onSelectSection,
 }) => {
+  const [printerName, setPrinterName] = useState<string>(getSavedPrinterName());
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setPrinterName(getSavedPrinterName());
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm">
       <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-100 px-1">
@@ -42,14 +53,20 @@ export const BillSectionTabs: React.FC<BillSectionTabsProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
-          <span className="hidden md:inline">
-            Active Sections:{' '}
-            <strong className="text-slate-800">
-              {sections.filter(s => s.items.length > 0).length} / 10
-            </strong>
-          </span>
-          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500">
+          {/* Connected Printer Device Name Badge */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold shadow-xs"
+            title="Connected Billing Machine / Thermal Printer"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <Printer className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="truncate max-w-[130px] sm:max-w-[200px]">
+              {printerName}
+            </span>
+          </div>
+
+          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono hidden lg:inline">
             Switch: Alt+1..9, Alt+0
           </span>
         </div>

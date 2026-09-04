@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Printer, Copy, Check, Usb, Cpu, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Printer, Copy, Check, Usb, Cpu, HelpCircle, ChevronDown, ChevronUp, Edit3 } from 'lucide-react';
 import { Bill, BillItem, ShopSettings } from '../../types';
 import { ThermalReceipt } from './ThermalReceipt';
 import { Modal } from '../common/Modal';
@@ -7,6 +7,8 @@ import {
   connectWebUsbPrinter,
   connectWebSerialPrinter,
   printDirectRaw,
+  getSavedPrinterName,
+  savePrinterName,
 } from '../../utils/thermalPrinter';
 
 interface ThermalReceiptModalProps {
@@ -25,7 +27,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   settings,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
+  const [connectedDeviceName, setConnectedDeviceName] = useState<string>(() => getSavedPrinterName());
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameInput, setEditNameInput] = useState(connectedDeviceName);
   const [isDirectPrinting, setIsDirectPrinting] = useState(false);
   const [showDirectGuide, setShowDirectGuide] = useState(false);
 
@@ -35,10 +39,19 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     window.print();
   };
 
+  const handleSavePrinterName = () => {
+    if (editNameInput.trim()) {
+      savePrinterName(editNameInput.trim());
+      setConnectedDeviceName(editNameInput.trim());
+    }
+    setIsEditingName(false);
+  };
+
   const handleConnectUsb = async () => {
     const res = await connectWebUsbPrinter();
     if (res.success && res.name) {
       setConnectedDeviceName(res.name);
+      setEditNameInput(res.name);
       alert(`✅ Connected to USB Thermal Printer: ${res.name}`);
     } else if (res.error) {
       alert(`USB Connection: ${res.error}`);
@@ -49,6 +62,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     const res = await connectWebSerialPrinter();
     if (res.success && res.name) {
       setConnectedDeviceName(res.name);
+      setEditNameInput(res.name);
       alert(`✅ Connected to Serial/COM Thermal Printer!`);
     } else if (res.error) {
       alert(`Serial Connection: ${res.error}`);
@@ -118,50 +132,82 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
       isOpen={isOpen}
       onClose={onClose}
       title="Thermal Receipt Preview"
-      subtitle={`Bill #${bill.bill_number} • 4-inch Thermal Roll (100mm)`}
+      subtitle={`Bill #${bill.bill_number} • ${connectedDeviceName}`}
       maxWidth="md"
     >
       <div className="space-y-3.5">
         {/* Direct Thermal Machine Banner & Connection */}
-        <div className="bg-slate-900 text-white p-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-sm print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center shrink-0">
-              <Printer className="w-4 h-4" />
+        <div className="bg-slate-900 text-white p-3.5 rounded-2xl flex flex-col gap-2.5 shadow-sm print:hidden">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Printer className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-200">Device Name:</span>
+                  {isEditingName ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={editNameInput}
+                        onChange={e => setEditNameInput(e.target.value)}
+                        className="px-2 py-0.5 text-xs bg-slate-800 border border-slate-700 rounded text-white focus:outline-none focus:border-brand-500"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSavePrinterName}
+                        className="px-2 py-0.5 bg-brand-600 text-white text-[10px] font-bold rounded"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-lg text-xs font-bold font-mono truncate max-w-[180px] sm:max-w-[260px]">
+                        {connectedDeviceName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditNameInput(connectedDeviceName);
+                          setIsEditingName(true);
+                        }}
+                        className="p-1 text-slate-400 hover:text-white"
+                        title="Edit Printer Name"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Ready to print to your TVS / POS Thermal Billing Machine.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold flex items-center gap-1.5">
-                <span>Direct Thermal Billing Machine</span>
-                {connectedDeviceName && (
-                  <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[10px] font-mono">
-                    Online: {connectedDeviceName}
-                  </span>
-                )}
-              </p>
-              <p className="text-[11px] text-slate-400">
-                Connect your USB/Serial POS billing machine for instant printing without PDF prompts.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-            <button
-              type="button"
-              onClick={handleConnectUsb}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-colors"
-              title="Connect USB Thermal Printer"
-            >
-              <Usb className="w-3.5 h-3.5 text-brand-400" />
-              <span>USB Connect</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleConnectSerial}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-colors"
-              title="Connect Serial / COM Thermal Printer"
-            >
-              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
-              <span>COM Connect</span>
-            </button>
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={handleConnectUsb}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-colors"
+                title="Connect USB Thermal Printer"
+              >
+                <Usb className="w-3.5 h-3.5 text-brand-400" />
+                <span>USB Connect</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleConnectSerial}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-colors"
+                title="Connect Serial / COM Thermal Printer"
+              >
+                <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+                <span>COM Connect</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -174,7 +220,7 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
           >
             <span className="flex items-center gap-1.5">
               <HelpCircle className="w-3.5 h-3.5 text-brand-600" />
-              <span>How to stop browser "Save as PDF" and print directly to Thermal Machine?</span>
+              <span>How to stop browser "Save as PDF" and print directly to {connectedDeviceName}?</span>
             </span>
             {showDirectGuide ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
           </button>
@@ -182,10 +228,10 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
           {showDirectGuide && (
             <div className="p-3 text-[11px] text-slate-600 space-y-2 border-t border-slate-200 bg-white">
               <p>
-                <strong>Step 1 (One-Time Setup):</strong> When you click <em>Print Thermal Bill</em>, in the browser print window:
+                <strong>Step 1 (One-Time Setup):</strong> When you click <em>Print Bill ({connectedDeviceName})</em>, in the browser print window:
               </p>
               <ul className="list-disc pl-5 space-y-1 font-mono text-[10.5px] text-slate-700">
-                <li>Change <strong>Destination</strong>: Select your connected Thermal Printer name (e.g. <em>POS-80, TVS, Epson, Xprinter</em>) instead of <em>"Save as PDF"</em>.</li>
+                <li>Change <strong>Destination</strong>: Select <strong>{connectedDeviceName}</strong> instead of <em>"Save as PDF"</em>.</li>
                 <li>Set <strong>Paper size</strong>: <em>80mm / 4-inch Roll</em>.</li>
                 <li>Set <strong>Margins</strong>: <em>None</em>.</li>
                 <li>Uncheck <strong>Headers and Footers</strong>.</li>
@@ -222,7 +268,7 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
               Close
             </button>
             <button
-              onClick={connectedDeviceName ? handleDirectEscPosPrint : handleBrowserPrint}
+              onClick={handleBrowserPrint}
               disabled={isDirectPrinting}
               className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 transition-all cursor-pointer"
             >
@@ -230,9 +276,7 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
               <span>
                 {isDirectPrinting
                   ? 'Sending to Printer...'
-                  : connectedDeviceName
-                  ? 'Direct USB Print'
-                  : 'Print Thermal Bill (F9)'}
+                  : `Print Bill (${connectedDeviceName.slice(0, 16)}) →`}
               </span>
             </button>
           </div>

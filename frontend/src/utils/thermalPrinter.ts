@@ -2,13 +2,58 @@
 import { Bill, BillItem, ShopSettings } from '../types';
 
 export interface ConnectedPrinter {
-  type: 'usb' | 'serial';
+  type: 'usb' | 'serial' | 'system';
   name: string;
-  device: any;
+  isOnline: boolean;
+  device?: any;
 }
 
 let activeUsbDevice: any = null;
 let activeSerialPort: any = null;
+
+export const DEFAULT_PRINTER_NAME = 'TVS Electronics RP Series / POS-80';
+
+export function getSavedPrinterName(): string {
+  try {
+    return localStorage.getItem('billing_printer_name') || DEFAULT_PRINTER_NAME;
+  } catch {
+    return DEFAULT_PRINTER_NAME;
+  }
+}
+
+export function savePrinterName(name: string): void {
+  try {
+    localStorage.setItem('billing_printer_name', name.trim());
+  } catch {
+    // ignore
+  }
+}
+
+export function getPrinterStatus(): ConnectedPrinter {
+  if (activeUsbDevice && activeUsbDevice.opened) {
+    return {
+      type: 'usb',
+      name: activeUsbDevice.productName || getSavedPrinterName(),
+      isOnline: true,
+      device: activeUsbDevice,
+    };
+  }
+
+  if (activeSerialPort && activeSerialPort.readable) {
+    return {
+      type: 'serial',
+      name: getSavedPrinterName(),
+      isOnline: true,
+      device: activeSerialPort,
+    };
+  }
+
+  return {
+    type: 'system',
+    name: getSavedPrinterName(),
+    isOnline: true,
+  };
+}
 
 /**
  * Connect to Thermal Printer via WebUSB
@@ -30,7 +75,9 @@ export async function connectWebUsbPrinter(): Promise<{ success: boolean; name?:
     await device.claimInterface(0);
 
     activeUsbDevice = device;
-    return { success: true, name: device.productName || 'USB Thermal Printer' };
+    const name = device.productName || 'USB Thermal Billing Machine';
+    savePrinterName(name);
+    return { success: true, name };
   } catch (err: any) {
     return { success: false, error: err.message || 'Failed to connect USB printer' };
   }
@@ -49,7 +96,9 @@ export async function connectWebSerialPrinter(): Promise<{ success: boolean; nam
     await port.open({ baudRate: 9600 });
 
     activeSerialPort = port;
-    return { success: true, name: 'Serial / COM Thermal Printer' };
+    const name = 'TVS / Serial Thermal Printer';
+    savePrinterName(name);
+    return { success: true, name };
   } catch (err: any) {
     return { success: false, error: err.message || 'Failed to connect Serial printer' };
   }
@@ -102,7 +151,10 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
 
   // Items
   for (const item of items) {
-    const name = (item.product_name || 'Item').slice(0, 13).padEnd(14);
+    const printName = item.product_name_tamil && item.product_name_tamil.trim()
+      ? item.product_name_tamil.trim()
+      : item.product_name || 'Item';
+    const name = printName.slice(0, 13).padEnd(14);
     const qty = String(item.quantity).padStart(3);
     const rate = Number(item.price).toFixed(0).padStart(6);
     const total = Number(item.total).toFixed(0).padStart(7);
