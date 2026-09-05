@@ -227,6 +227,7 @@ export async function printDirectRaw(bill: Bill, items: BillItem[], settings?: P
 
 /**
  * Print receipt using an isolated hidden iframe so only the receipt content is sent to the printer
+ * with 100% pixel-perfect matching styling to the on-screen preview.
  */
 export function printReceiptElement(elementId: string = 'thermal-receipt-printable'): void {
   const originalElement = document.getElementById(elementId);
@@ -257,46 +258,197 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
     return;
   }
 
-  // Collect existing CSS sheets and style tags
-  const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-    .map(el => el.outerHTML)
-    .join('\n');
+  // Extract cloned receipt HTML
+  const receiptHtml = originalElement.outerHTML;
 
   doc.open();
   doc.write(`
     <!DOCTYPE html>
     <html>
       <head>
+        <meta charset="utf-8" />
         <title>Receipt</title>
-        ${styles}
         <style>
           @page {
             size: auto;
             margin: 0mm !important;
+          }
+          *, *::before, *::after {
+            box-sizing: border-box !important;
+            margin: 0;
+            padding: 0;
           }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+            font-size: 11px !important;
+            line-height: 1.3 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           #thermal-receipt-printable {
-            position: static !important;
-            width: 100% !important;
+            width: 76mm !important;
             max-width: 80mm !important;
             margin: 0 auto !important;
-            padding: 1mm 1mm !important;
+            padding: 3mm 2mm !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+            font-size: 11px !important;
+            line-height: 1.3 !important;
             box-shadow: none !important;
             border: none !important;
-            height: auto !important;
+          }
+          .flex {
+            display: flex !important;
+          }
+          .justify-between {
+            justify-content: space-between !important;
+          }
+          .items-center {
+            align-items: center !important;
+          }
+          .text-center {
+            text-align: center !important;
+          }
+          .text-left {
+            text-align: left !important;
+          }
+          .text-right {
+            text-align: right !important;
+          }
+          .font-black, .font-extrabold {
+            font-weight: 900 !important;
+          }
+          .font-bold {
+            font-weight: 700 !important;
+          }
+          .font-medium {
+            font-weight: 500 !important;
+          }
+          .font-mono {
+            font-family: "Courier New", Courier, Consolas, monospace !important;
+          }
+          .font-sans {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+          }
+          .uppercase {
+            text-transform: uppercase !important;
+          }
+          .tracking-wider {
+            letter-spacing: 0.05em !important;
+          }
+          .tracking-widest {
+            letter-spacing: 0.15em !important;
+          }
+          .whitespace-pre-line {
+            white-space: pre-line !important;
+          }
+          .break-words {
+            word-break: break-word !important;
+          }
+          .block {
+            display: block !important;
+          }
+          .border-t {
+            border-top: 1px solid #000000 !important;
+          }
+          .border-b {
+            border-bottom: 1px solid #000000 !important;
+          }
+          .border-black {
+            border-color: #000000 !important;
+          }
+          .border-dashed {
+            border-style: dashed !important;
+          }
+          .my-1 {
+            margin-top: 4px !important;
+            margin-bottom: 4px !important;
+          }
+          .mt-0\\.5 {
+            margin-top: 2px !important;
+          }
+          .mt-1 {
+            margin-top: 4px !important;
+          }
+          .mt-2 {
+            margin-top: 8px !important;
+          }
+          .pt-0\\.5 {
+            padding-top: 2px !important;
+          }
+          .pt-1 {
+            padding-top: 4px !important;
+          }
+          .pt-3 {
+            padding-top: 8px !important;
+          }
+          .pb-1 {
+            padding-bottom: 4px !important;
+          }
+          .pb-2 {
+            padding-bottom: 6px !important;
+          }
+          .py-0\\.5 {
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+          }
+          .py-1 {
+            padding-top: 3px !important;
+            padding-bottom: 3px !important;
+          }
+          .py-1\\.5 {
+            padding-top: 4px !important;
+            padding-bottom: 4px !important;
+          }
+          .space-y-0\\.5 > * + * {
+            margin-top: 2px !important;
+          }
+          .space-y-1 > * + * {
+            margin-top: 4px !important;
+          }
+          .text-sm {
+            font-size: 13px !important;
+          }
+          .text-base {
+            font-size: 14px !important;
+          }
+          .text-\\[8px\\] {
+            font-size: 8px !important;
+          }
+          .text-\\[9px\\] {
+            font-size: 9px !important;
+          }
+          .text-\\[10px\\] {
+            font-size: 10px !important;
+          }
+          .text-\\[11px\\] {
+            font-size: 11px !important;
+          }
+          .text-\\[12px\\] {
+            font-size: 12px !important;
+          }
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+          th, td {
+            padding: 3px 0 !important;
+          }
+          .align-top {
+            vertical-align: top !important;
+          }
+          .divide-y > * + * {
+            border-top: 1px dotted #ccc !important;
           }
         </style>
       </head>
       <body>
-        ${originalElement.outerHTML}
+        ${receiptHtml}
       </body>
     </html>
   `);
