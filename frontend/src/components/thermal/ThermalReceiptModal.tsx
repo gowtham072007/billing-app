@@ -291,7 +291,7 @@ ${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
               Close
             </button>
             <button
-              onClick={handleBrowserPrint}
+              onClick={handleDirectEscPosPrint}
               disabled={isDirectPrinting}
               className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 transition-all cursor-pointer"
             >
