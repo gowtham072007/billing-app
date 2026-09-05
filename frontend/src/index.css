@@ -80,12 +80,12 @@
 /* EXACT THERMAL RECEIPT ROLL PRINT MEDIA ENGINE (80MM / 3-INCH & 58MM)     */
 /* ========================================================================= */
 @media print {
-  /* Hide every single element in the entire web app */
-  body * {
-    visibility: hidden !important;
+  @page {
+    margin: 0mm !important;
+    size: auto;
   }
 
-  /* Reset body and html */
+  /* Reset body and html for zero margins and height */
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
@@ -94,6 +94,12 @@
     width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Collapse all background app elements */
+  body * {
+    visibility: hidden !important;
   }
 
   /* Reveal ONLY the thermal receipt container and its children */
@@ -105,14 +111,14 @@
   }
 
   #thermal-receipt-printable {
-    position: fixed !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 76mm !important; /* Standard printable roll width */
+    width: 76mm !important; /* Standard printable roll width for 80mm */
     max-width: 80mm !important;
     min-width: 70mm !important;
     margin: 0 !important;
-    padding: 1mm 2mm !important;
+    padding: 2mm 1mm !important;
     background-color: #ffffff !important;
     font-family: "JetBrains Mono", Consolas, "Courier New", Courier, monospace, sans-serif !important;
     font-size: 11px !important;
@@ -123,10 +129,6 @@
     page-break-after: avoid !important;
     page-break-before: avoid !important;
     break-inside: avoid !important;
-  }
-
-  @page {
-    margin: 0mm !important;
-    size: auto;
+    height: auto !important;
   }
 }

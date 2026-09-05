@@ -224,3 +224,90 @@ export async function printDirectRaw(bill: Bill, items: BillItem[], settings?: P
 
   return false;
 }
+
+/**
+ * Print receipt using an isolated hidden iframe so only the receipt content is sent to the printer
+ */
+export function printReceiptElement(elementId: string = 'thermal-receipt-printable'): void {
+  const originalElement = document.getElementById(elementId);
+  if (!originalElement) {
+    window.print();
+    return;
+  }
+
+  // Remove any previously created print iframes
+  const oldIframe = document.getElementById('thermal-print-iframe');
+  if (oldIframe) {
+    oldIframe.remove();
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'thermal-print-iframe';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    window.print();
+    return;
+  }
+
+  // Collect existing CSS sheets and style tags
+  const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+    .map(el => el.outerHTML)
+    .join('\n');
+
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Receipt</title>
+        ${styles}
+        <style>
+          @page {
+            size: auto;
+            margin: 0mm !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+          }
+          #thermal-receipt-printable {
+            position: static !important;
+            width: 100% !important;
+            max-width: 80mm !important;
+            margin: 0 auto !important;
+            padding: 1mm 1mm !important;
+            box-shadow: none !important;
+            border: none !important;
+            height: auto !important;
+          }
+        </style>
+      </head>
+      <body>
+        ${originalElement.outerHTML}
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      window.print();
+    }
+  }, 250);
+}

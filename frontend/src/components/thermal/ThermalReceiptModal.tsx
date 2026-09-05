@@ -7,6 +7,7 @@ import {
   connectWebUsbPrinter,
   connectWebSerialPrinter,
   printDirectRaw,
+  printReceiptElement,
   getSavedPrinterName,
   savePrinterName,
 } from '../../utils/thermalPrinter';
@@ -37,7 +38,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   if (!bill) return null;
 
   const handleBrowserPrint = () => {
-    window.print();
+    printReceiptElement('thermal-receipt-printable');
   };
 
   const handleSavePrinterName = () => {
