@@ -41,8 +41,13 @@ export const Login: React.FC = () => {
       return;
     }
 
-    if (customerPhone.trim() && !/^\d{10}$/.test(customerPhone.trim())) {
-      setErrorMessage('Please enter a valid 10-digit mobile number.');
+    if (!customerPhone.trim()) {
+      setErrorMessage(t('enter_phone_to_shop'));
+      return;
+    }
+
+    if (!/^\d{10}$/.test(customerPhone.trim())) {
+      setErrorMessage(t('invalid_phone_number'));
       return;
     }
 
@@ -50,7 +55,7 @@ export const Login: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      await customerQuickSign(customerName.trim(), customerPhone.trim() || undefined);
+      await customerQuickSign(customerName.trim(), customerPhone.trim());
       navigate(redirectUrl.startsWith('/admin') ? '/customer/products' : redirectUrl);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to sign in. Please try again.');
@@ -141,7 +146,7 @@ export const Login: React.FC = () => {
             <form onSubmit={handleCustomerSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {t('full_name')} *
+                  {t('full_name')} <span className="text-rose-600 font-bold">*</span>
                 </label>
                 <input
                   type="text"
@@ -155,17 +160,28 @@ export const Login: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {t('mobile_phone')}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    {t('mobile_phone')} <span className="text-rose-600 font-bold">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/60">
+                    Compulsory *
+                  </span>
+                </div>
                 <input
                   type="tel"
+                  required
                   value={customerPhone}
                   onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="9876543210 (10-digit mobile number)"
                   maxLength={10}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal font-mono"
+                  pattern="[0-9]{10}"
+                  title="10-digit mobile number"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal font-mono"
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {t('mobile_phone_hint')}
+                </p>
               </div>
 
               <button

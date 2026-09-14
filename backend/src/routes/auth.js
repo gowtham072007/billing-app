@@ -5,7 +5,7 @@ const { generateToken, authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST /api/auth/customer-quick-sign (Customer signs in with Name only)
+// POST /api/auth/customer-quick-sign (Customer signs in with Name and Mobile Number)
 router.post('/customer-quick-sign', (req, res, next) => {
   try {
     const { name, phone, address } = req.body;
@@ -14,18 +14,25 @@ router.post('/customer-quick-sign', (req, res, next) => {
       return res.status(400).json({ error: 'Please enter your name to continue.' });
     }
 
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ error: 'Please enter your 10-digit mobile number.' });
+    }
+
     const cleanName = name.trim();
-    const cleanPhone = phone ? phone.trim() : `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const cleanPhone = phone.trim();
 
-    // Check if customer already exists by name or phone
-    let customer = db.prepare('SELECT * FROM customers WHERE LOWER(name) = ? OR (phone = ? AND phone IS NOT NULL)').get(cleanName.toLowerCase(), cleanPhone);
-    let user = null;
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+    }
 
-    if (customer && customer.user_id) {
+    // Check if user or customer already exists with this phone number
+    let user = db.prepare('SELECT * FROM users WHERE phone = ?').get(cleanPhone);
+    let customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(cleanPhone);
+
+    if (user && !customer) {
+      customer = db.prepare('SELECT * FROM customers WHERE user_id = ?').get(user.id);
+    } else if (customer && !user && customer.user_id) {
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(customer.user_id);
-    } else if (!customer) {
-      // Find existing user by name
-      user = db.prepare('SELECT * FROM users WHERE LOWER(name) = ? AND role = "customer"').get(cleanName.toLowerCase());
     }
 
     const salt = bcrypt.genSaltSync(10);
@@ -42,10 +49,17 @@ router.post('/customer-quick-sign', (req, res, next) => {
 
         const userId = userRes.lastInsertRowid;
 
-        const custRes = db.prepare(`
-          INSERT INTO customers (user_id, name, phone, email, address)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(userId, cleanName, cleanPhone, dummyEmail, address ? address.trim() : 'Local Delivery');
+        let customerId;
+        if (customer) {
+          db.prepare('UPDATE customers SET user_id = ?, name = ? WHERE id = ?').run(userId, cleanName, customer.id);
+          customerId = customer.id;
+        } else {
+          const custRes = db.prepare(`
+            INSERT INTO customers (user_id, name, phone, email, address)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(userId, cleanName, cleanPhone, dummyEmail, address ? address.trim() : 'Local Delivery');
+          customerId = custRes.lastInsertRowid;
+        }
 
         return {
           id: userId,
@@ -53,22 +67,34 @@ router.post('/customer-quick-sign', (req, res, next) => {
           email: dummyEmail,
           phone: cleanPhone,
           role: 'customer',
-          customer_id: custRes.lastInsertRowid,
-          address: address ? address.trim() : null
+          customer_id: customerId,
+          address: address ? address.trim() : (customer ? customer.address : null)
         };
       });
 
       user = tx();
     } else {
-      // User exists, find or create customer profile
+      // User exists, update name if needed and link customer profile
+      if (cleanName && user.name !== cleanName) {
+        db.prepare('UPDATE users SET name = ? WHERE id = ?').run(cleanName, user.id);
+        user.name = cleanName;
+      }
+
       if (!customer) {
         const custRes = db.prepare(`
           INSERT INTO customers (user_id, name, phone, email, address)
           VALUES (?, ?, ?, ?, ?)
-        `).run(user.id, user.name, user.phone || cleanPhone, user.email, address ? address.trim() : null);
+        `).run(user.id, user.name, user.phone, user.email, address ? address.trim() : 'Local Delivery');
         user.customer_id = custRes.lastInsertRowid;
         user.address = address ? address.trim() : null;
       } else {
+        if (cleanName && customer.name !== cleanName) {
+          db.prepare('UPDATE customers SET name = ? WHERE id = ?').run(cleanName, customer.id);
+        }
+        if (address && address.trim() && !customer.address) {
+          db.prepare('UPDATE customers SET address = ? WHERE id = ?').run(address.trim(), customer.id);
+          customer.address = address.trim();
+        }
         user.customer_id = customer.id;
         user.address = customer.address;
       }
@@ -170,8 +196,16 @@ router.post('/register', (req, res, next) => {
       return res.status(400).json({ error: 'Name is required.' });
     }
 
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ error: 'Mobile number is required.' });
+    }
+
+    const cleanPhone = phone.trim();
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+    }
+
     const cleanName = name.trim();
-    const cleanPhone = phone ? phone.trim() : `98${Math.floor(10000000 + Math.random() * 90000000)}`;
     const cleanEmail = email ? email.trim().toLowerCase() : null;
 
     const salt = bcrypt.genSaltSync(10);

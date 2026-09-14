@@ -24,10 +24,20 @@ export const Register: React.FC = () => {
       return;
     }
 
+    if (!phone.trim()) {
+      setErrorMessage('Please enter your 10-digit mobile number.');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone.trim())) {
+      setErrorMessage('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await customerQuickSign(name.trim(), phone.trim() || undefined, address.trim() || undefined);
+      await customerQuickSign(name.trim(), phone.trim(), address.trim() || undefined);
       navigate('/customer/products');
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to sign in. Please try again.');
@@ -46,7 +56,7 @@ export const Register: React.FC = () => {
           Customer Sign In
         </h2>
         <p className="text-xs text-slate-500">
-          Enter your name to shop at {settings.shop_name || 'the store'}
+          Enter your name and mobile number to shop at {settings.shop_name || 'the store'}
         </p>
       </div>
 
@@ -60,7 +70,9 @@ export const Register: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Your Full Name *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Your Full Name <span className="text-rose-600 font-bold">*</span>
+              </label>
               <input
                 type="text"
                 required
@@ -73,13 +85,24 @@ export const Register: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Mobile Phone (Optional)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  Mobile Phone <span className="text-rose-600 font-bold">*</span>
+                </label>
+                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/60">
+                  Compulsory *
+                </span>
+              </div>
               <input
                 type="tel"
+                required
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="9876543210"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:bg-white focus:border-brand-500 outline-none"
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="9876543210 (10-digit mobile number)"
+                maxLength={10}
+                pattern="[0-9]{10}"
+                title="10-digit mobile number"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-medium focus:bg-white focus:border-brand-500 outline-none"
               />
             </div>
 

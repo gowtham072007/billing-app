@@ -48,6 +48,9 @@ export const translations = {
     password: 'Password',
     mobile_phone: 'Mobile Phone',
     enter_name_to_shop: 'Please enter your name to continue.',
+    enter_phone_to_shop: 'Please enter your 10-digit mobile number.',
+    invalid_phone_number: 'Please enter a valid 10-digit mobile number.',
+    mobile_phone_hint: '10-digit mobile number is compulsory for order tracking & billing receipts.',
 
     // Customer Store & Cart
     cart: 'Cart',
@@ -193,6 +196,9 @@ export const translations = {
     password: 'கடவுச்சொல்',
     mobile_phone: 'கைபேசி எண்',
     enter_name_to_shop: 'தயவுசெய்து உங்கள் பெயரை உள்ளிடவும்.',
+    enter_phone_to_shop: 'தயவுசெய்து உங்கள் 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்.',
+    invalid_phone_number: 'தயவுசெய்து சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்.',
+    mobile_phone_hint: 'ஆர்டர் மற்றும் பில்லிங் செய்ய 10 இலக்க மொபைல் எண் கட்டாயம்.',
 
     // Customer Store & Cart
     cart: 'கூடை',
