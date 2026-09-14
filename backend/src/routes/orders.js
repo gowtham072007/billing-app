@@ -331,8 +331,8 @@ router.post('/', authenticateToken, (req, res, next) => {
   }
 });
 
-// PATCH /api/orders/:id/status (Admin updates order status)
-router.patch('/:id/status', authenticateToken, requireAdmin, (req, res, next) => {
+// PATCH /api/orders/:id/status (Admin updates order status, or Customer cancels their own pending order)
+router.patch('/:id/status', authenticateToken, (req, res, next) => {
   try {
     const id = req.params.id;
     const { status } = req.body;
@@ -345,6 +345,30 @@ router.patch('/:id/status', authenticateToken, requireAdmin, (req, res, next) =>
     const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
     if (!existing) {
       return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    // Role check:
+    if (req.user.role === 'customer') {
+      if (status !== 'cancelled') {
+        return res.status(403).json({ error: 'Customers can only cancel their own orders.' });
+      }
+
+      const cust = db.prepare('SELECT id FROM customers WHERE user_id = ?').get(req.user.id);
+      const isOwner = (cust && existing.customer_id === cust.id) || (req.user.phone && existing.customer_phone === req.user.phone);
+
+      if (!isOwner) {
+        return res.status(403).json({ error: 'Access denied. You can only cancel your own orders.' });
+      }
+
+      if (existing.status === 'completed') {
+        return res.status(400).json({ error: 'Cannot cancel an order that has already been completed.' });
+      }
+
+      if (existing.status === 'cancelled') {
+        return res.status(400).json({ error: 'Order is already cancelled.' });
+      }
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
     }
 
     db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, id);

@@ -30,6 +30,7 @@ export const MyOrders: React.FC = () => {
   const [selectedReceiptBill, setSelectedReceiptBill] = useState<Bill | null>(null);
   const [selectedReceiptItems, setSelectedReceiptItems] = useState<BillItem[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
+  const [cancelingOrderId, setCancelingOrderId] = useState<number | null>(null);
 
   const fetchOrders = async () => {
     try {
@@ -71,11 +72,14 @@ export const MyOrders: React.FC = () => {
   const handleCancelOrder = async (orderId: number) => {
     if (!window.confirm('Are you sure you want to cancel this order?')) return;
 
+    setCancelingOrderId(orderId);
     try {
       await api.patch(`/orders/${orderId}/status`, { status: 'cancelled' });
-      fetchOrders();
+      await fetchOrders();
     } catch (err: any) {
       alert(err.message || 'Failed to cancel order.');
+    } finally {
+      setCancelingOrderId(null);
     }
   };
 
@@ -294,10 +298,11 @@ export const MyOrders: React.FC = () => {
 
                     {order.status === 'pending' && (
                       <button
+                        disabled={cancelingOrderId === order.id}
                         onClick={() => handleCancelOrder(order.id)}
-                        className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition-colors"
+                        className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 disabled:opacity-50 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                       >
-                        Cancel Order
+                        {cancelingOrderId === order.id ? 'Cancelling...' : 'Cancel Order'}
                       </button>
                     )}
                   </div>
