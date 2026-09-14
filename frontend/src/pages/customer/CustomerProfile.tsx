@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User as UserIcon, Phone, Mail, MapPin, Receipt, Printer, Save, CheckCircle2 } from 'lucide-react';
+import { User as UserIcon, Phone, MapPin, Receipt, Printer, Save, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { api } from '../../api/client';
@@ -12,7 +12,6 @@ export const CustomerProfile: React.FC = () => {
 
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
-  const [email, setEmail] = useState(user?.email || '');
   const [address, setAddress] = useState(user?.address || '');
   const [isSaved, setIsSaved] = useState(false);
   const [bills, setBills] = useState<Bill[]>([]);
@@ -79,11 +78,6 @@ export const CustomerProfile: React.FC = () => {
             <div>
               <span className="text-slate-400 font-bold uppercase text-[10px] block">Mobile Phone</span>
               <span className="text-slate-800 font-mono font-bold">{user?.phone}</span>
-            </div>
-
-            <div>
-              <span className="text-slate-400 font-bold uppercase text-[10px] block">Email Address</span>
-              <span className="text-slate-800">{user?.email || 'Not provided'}</span>
             </div>
 
             <div>
