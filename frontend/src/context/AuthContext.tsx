@@ -19,13 +19,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('billing_auth_token'));
+  const [token, setToken] = useState<string | null>(() => {
+    // Clear legacy localStorage token so closed app sessions are never restored
+    try {
+      localStorage.removeItem('billing_auth_token');
+    } catch {}
+    return sessionStorage.getItem('billing_auth_token');
+  });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Check current session on load
   useEffect(() => {
     async function checkAuth() {
-      const storedToken = localStorage.getItem('billing_auth_token');
+      try {
+        localStorage.removeItem('billing_auth_token');
+      } catch {}
+
+      const storedToken = sessionStorage.getItem('billing_auth_token');
       if (!storedToken) {
         setIsLoading(false);
         return;
@@ -36,7 +46,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(res.user);
       } catch (err) {
         console.warn('Session expired or invalid token');
-        localStorage.removeItem('billing_auth_token');
+        sessionStorage.removeItem('billing_auth_token');
         setToken(null);
         setUser(null);
       } finally {
@@ -54,7 +64,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       role,
     });
 
-    localStorage.setItem('billing_auth_token', res.token);
+    sessionStorage.setItem('billing_auth_token', res.token);
     setToken(res.token);
     setUser(res.user);
     return res.user;
@@ -67,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       address,
     });
 
-    localStorage.setItem('billing_auth_token', res.token);
+    sessionStorage.setItem('billing_auth_token', res.token);
     setToken(res.token);
     setUser(res.user);
     return res.user;
@@ -82,14 +92,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }): Promise<User> => {
     const res = await api.post<{ token: string; user: User }>('/auth/register', data);
 
-    localStorage.setItem('billing_auth_token', res.token);
+    sessionStorage.setItem('billing_auth_token', res.token);
     setToken(res.token);
     setUser(res.user);
     return res.user;
   };
 
   const logout = () => {
-    localStorage.removeItem('billing_auth_token');
+    sessionStorage.removeItem('billing_auth_token');
+    try {
+      localStorage.removeItem('billing_auth_token');
+    } catch {}
     setToken(null);
     setUser(null);
   };

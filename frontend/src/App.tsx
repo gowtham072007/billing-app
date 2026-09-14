@@ -102,13 +102,7 @@ export const App: React.FC = () => {
         path="/"
         element={
           <SplashScreen
-            redirectPath={
-              isAuthenticated
-                ? isAdmin
-                  ? '/admin/dashboard'
-                  : '/customer/products'
-                : '/login'
-            }
+            redirectPath="/login"
           />
         }
       />
