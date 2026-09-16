@@ -322,14 +322,19 @@ export function printReceiptElement(
     oldIframe.remove();
   }
 
+  // Calculate dynamic content height in mm (1px = 25.4 / 96 mm)
+  const contentHeightPx = originalElement.scrollHeight || originalElement.offsetHeight || 500;
+  const heightMm = Math.max(50, Math.ceil((contentHeightPx * 25.4) / 96) + 6);
+  const widthMm = paperWidth === '58mm' ? '58mm' : paperWidth === '100mm' ? '100mm' : '80mm';
+
   // Deep-clone with all computed styles inlined
   const styledClone = cloneWithInlineStyles(originalElement);
 
-  // Set full width on the root clone to utilize the entire paper width
+  // Set safe padding and sizing on the root clone
   styledClone.style.setProperty('width', '100%', 'important');
   styledClone.style.setProperty('max-width', '100%', 'important');
   styledClone.style.setProperty('margin', '0', 'important');
-  styledClone.style.setProperty('padding', '0', 'important');
+  styledClone.style.setProperty('padding', '2.5mm 3.5mm 3.5mm 3.5mm', 'important');
   styledClone.style.setProperty('background', '#ffffff', 'important');
   styledClone.style.setProperty('color', '#000000', 'important');
   styledClone.style.setProperty('box-shadow', 'none', 'important');
@@ -355,8 +360,6 @@ export function printReceiptElement(
     return;
   }
 
-  const pageSize = paperWidth === '58mm' ? '58mm auto' : paperWidth === '100mm' ? '100mm auto' : '80mm auto';
-
   doc.open();
   doc.write(`
     <!DOCTYPE html>
@@ -366,7 +369,7 @@ export function printReceiptElement(
         <title>Receipt</title>
         <style>
           @page {
-            size: ${pageSize};
+            size: ${widthMm} ${heightMm}mm;
             margin: 0mm !important;
           }
           *, *::before, *::after {
@@ -377,20 +380,19 @@ export function printReceiptElement(
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
+            width: ${widthMm} !important;
+            max-width: ${widthMm} !important;
+            height: ${heightMm}mm !important;
+            overflow: hidden !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Latha", "Mukta Malar", "Tamil Sangam MN" !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Mukta Malar", "Latha", "Tamil Sangam MN" !important;
           }
           #thermal-receipt-printable {
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            padding: 1mm 1mm 2mm 1mm !important;
+            padding: 2.5mm 3.5mm 3.5mm 3.5mm !important;
             box-sizing: border-box !important;
             border: none !important;
             box-shadow: none !important;
@@ -398,7 +400,7 @@ export function printReceiptElement(
             break-after: avoid !important;
             break-inside: avoid !important;
           }
-          /* Ensure all colors print as pure high-contrast black for thermal printers */
+          /* Ensure high-contrast pure black text */
           body * {
             color: #000000 !important;
           }
