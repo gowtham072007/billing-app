@@ -9,6 +9,7 @@ import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModa
 import { CameraBarcodeScannerModal } from '../../components/pos/CameraBarcodeScannerModal';
 import { useGlobalBarcodeScanner } from '../../hooks/useGlobalBarcodeScanner';
 import { posSounds } from '../../utils/soundEffects';
+import { printReceiptElement } from '../../utils/thermalPrinter';
 import { Product, Customer, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useSettings } from '../../context/SettingsContext';
@@ -387,7 +388,7 @@ export const Billing: React.FC = () => {
       // Trigger instant browser print if F9 pressed
       if (printImmediate) {
         setTimeout(() => {
-          window.print();
+          printReceiptElement('thermal-receipt-printable');
         }, 400);
       }
     } catch (err: any) {

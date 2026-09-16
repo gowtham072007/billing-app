@@ -21,6 +21,7 @@ import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModal';
 import { useSettings } from '../../context/SettingsContext';
+import { printReceiptElement } from '../../utils/thermalPrinter';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const Orders: React.FC = () => {
@@ -139,7 +140,7 @@ export const Orders: React.FC = () => {
       fetchOrders();
 
       setTimeout(() => {
-        window.print();
+        printReceiptElement('thermal-receipt-printable');
       }, 300);
     } catch (err: any) {
       alert(err.message || 'Failed to convert order to bill');
