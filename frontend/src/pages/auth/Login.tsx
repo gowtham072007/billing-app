@@ -96,9 +96,6 @@ export const Login: React.FC = () => {
             <h3 className="text-lg font-bold text-slate-800">
               {t('sign_in', 'Sign In')}
             </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              {t('common_login_sub', 'Enter your name and phone number or password to access your dashboard')}
-            </p>
           </div>
 
           {errorMessage && (
