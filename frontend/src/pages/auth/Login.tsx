@@ -176,16 +176,6 @@ export const Login: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* New Customer Registration Link */}
-          <div className="text-center pt-2 border-t border-slate-100">
-            <p className="text-xs text-slate-500">
-              {t('new_customer_prompt', 'New customer?')}{' '}
-              <Link to="/register" className="font-bold text-brand-600 hover:underline">
-                {t('create_account_link', 'Register Here')}
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
     </div>

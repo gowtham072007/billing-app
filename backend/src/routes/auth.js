@@ -179,115 +179,110 @@ router.post('/login', (req, res, next) => {
       }
     }
 
-    // 2. ATTEMPT CUSTOMER AUTHENTICATION
-    // Look up registered customer in `customers` and `users` tables
-    const custMatches = db.prepare(`
-      SELECT * FROM customers 
-      WHERE LOWER(name) = LOWER(?)
-    `).all(cleanName);
-
-    const userCustMatches = db.prepare(`
-      SELECT * FROM users 
-      WHERE role = 'customer' AND (LOWER(name) = LOWER(?) OR LOWER(email) = LOWER(?))
-    `).all(cleanName, cleanName);
-
-    // Merge and check matching customer credentials
-    let authenticatedCustomer = null;
-    let matchingUserId = null;
-    let customerProfile = null;
-
-    // Check customers table matches
-    for (const cust of custMatches) {
-      const custPhoneDigits = (cust.phone || '').replace(/\D/g, '');
-      const phoneMatches = cleanSecretDigits.length >= 10 && (
-        custPhoneDigits.endsWith(cleanSecretDigits.slice(-10)) ||
-        cleanSecretDigits.endsWith(custPhoneDigits.slice(-10))
-      );
-
-      if (phoneMatches) {
-        customerProfile = cust;
-        if (cust.user_id) {
-          const userRec = db.prepare('SELECT * FROM users WHERE id = ?').get(cust.user_id);
-          if (userRec) {
-            authenticatedCustomer = userRec;
-            matchingUserId = userRec.id;
-            break;
-          }
-        }
-        // If not yet linked to user table, find or create user for this customer
-        let userByPhone = db.prepare('SELECT * FROM users WHERE phone = ?').get(cust.phone);
-        if (!userByPhone) {
-          const salt = bcrypt.genSaltSync(10);
-          const dummyHash = bcrypt.hashSync('customer123', salt);
-          const dummyEmail = `${cust.name.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now().toString().slice(-4)}@customer.local`;
-          const userInsert = db.prepare(`
-            INSERT INTO users (name, email, phone, password_hash, role, status)
-            VALUES (?, ?, ?, ?, 'customer', 'active')
-          `).run(cust.name, dummyEmail, cust.phone, dummyHash);
-          userByPhone = db.prepare('SELECT * FROM users WHERE id = ?').get(userInsert.lastInsertRowid);
-        }
-        db.prepare('UPDATE customers SET user_id = ? WHERE id = ?').run(userByPhone.id, cust.id);
-        authenticatedCustomer = userByPhone;
-        matchingUserId = userByPhone.id;
-        break;
-      }
-    }
-
-    // Check users table customer matches if not found yet
-    if (!authenticatedCustomer) {
-      for (const u of userCustMatches) {
-        const uPhoneDigits = (u.phone || '').replace(/\D/g, '');
-        const phoneMatches = cleanSecretDigits.length >= 10 && (
-          uPhoneDigits.endsWith(cleanSecretDigits.slice(-10)) ||
-          cleanSecretDigits.endsWith(uPhoneDigits.slice(-10))
-        );
-        const passMatches = u.password_hash && bcrypt.compareSync(cleanSecret, u.password_hash);
-
-        if (phoneMatches || passMatches) {
-          authenticatedCustomer = u;
-          matchingUserId = u.id;
-          customerProfile = db.prepare('SELECT * FROM customers WHERE user_id = ? OR phone = ?').get(u.id, u.phone);
-          if (!customerProfile) {
-            const custRes = db.prepare(`
-              INSERT INTO customers (user_id, name, phone, email, address)
-              VALUES (?, ?, ?, ?, ?)
-            `).run(u.id, u.name, u.phone, u.email, 'Local Delivery');
-            customerProfile = db.prepare('SELECT * FROM customers WHERE id = ?').get(custRes.lastInsertRowid);
-          }
-          break;
-        }
-      }
-    }
-
-    if (authenticatedCustomer) {
-      if (authenticatedCustomer.status !== 'active') {
-        return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
-      }
-
-      if (role && role !== 'customer') {
-        return res.status(403).json({ error: `Access restricted. You cannot log in as ${role}.` });
-      }
-
-      const token = generateToken(authenticatedCustomer);
-      return res.json({
-        message: 'Customer login successful',
-        token,
-        user: {
-          id: authenticatedCustomer.id,
-          name: authenticatedCustomer.name,
-          email: authenticatedCustomer.email,
-          phone: authenticatedCustomer.phone,
-          role: 'customer',
-          customer_id: customerProfile ? customerProfile.id : null,
-          address: customerProfile ? customerProfile.address : null
-        },
-        redirectTo: '/customer/products'
+    if (adminCandidates.length > 0) {
+      return res.status(401).json({
+        error: 'Invalid admin credentials. Please check your phone number or password.'
       });
     }
 
-    // 3. INVALID CREDENTIALS
-    return res.status(401).json({
-      error: 'Invalid login credentials. Please check your registered name and phone number / password.'
+    // 2. CUSTOMER AUTHENTICATION & SEAMLESS SIGN-IN
+    // Customer enters Name & Phone Number -> auto-sign in and display Customer Dashboard
+    if (cleanSecretDigits.length < 10) {
+      return res.status(400).json({
+        error: 'Please enter a valid 10-digit mobile phone number.'
+      });
+    }
+
+    const cleanPhone = cleanSecretDigits.slice(-10);
+
+    // Check if user or customer already exists with this phone number
+    let user = db.prepare('SELECT * FROM users WHERE phone = ? OR phone LIKE ?').get(cleanPhone, `%${cleanPhone}`);
+    let customer = db.prepare('SELECT * FROM customers WHERE phone = ? OR phone LIKE ?').get(cleanPhone, `%${cleanPhone}`);
+
+    if (user && !customer) {
+      customer = db.prepare('SELECT * FROM customers WHERE user_id = ?').get(user.id);
+    } else if (customer && !user && customer.user_id) {
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(customer.user_id);
+    }
+
+    if (!user) {
+      // Auto-register customer seamlessly
+      const salt = bcrypt.genSaltSync(10);
+      const dummyHash = bcrypt.hashSync('customer123', salt);
+      const dummyEmail = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now().toString().slice(-4)}@customer.local`;
+
+      const tx = db.transaction(() => {
+        const userRes = db.prepare(`
+          INSERT INTO users (name, email, phone, password_hash, role, status)
+          VALUES (?, ?, ?, ?, 'customer', 'active')
+        `).run(cleanName, dummyEmail, cleanPhone, dummyHash);
+
+        const userId = userRes.lastInsertRowid;
+        let customerId;
+        if (customer) {
+          db.prepare('UPDATE customers SET user_id = ?, name = ? WHERE id = ?').run(userId, cleanName, customer.id);
+          customerId = customer.id;
+        } else {
+          const custRes = db.prepare(`
+            INSERT INTO customers (user_id, name, phone, email, address)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(userId, cleanName, cleanPhone, dummyEmail, 'Store Customer');
+          customerId = custRes.lastInsertRowid;
+        }
+
+        return {
+          id: userId,
+          name: cleanName,
+          email: dummyEmail,
+          phone: cleanPhone,
+          role: 'customer',
+          status: 'active',
+          customer_id: customerId,
+          address: customer ? customer.address : null
+        };
+      });
+
+      user = tx();
+    } else {
+      // User exists - update name if entered and link profile
+      if (cleanName && user.name !== cleanName) {
+        db.prepare('UPDATE users SET name = ? WHERE id = ?').run(cleanName, user.id);
+        user.name = cleanName;
+      }
+      if (customer) {
+        if (cleanName && customer.name !== cleanName) {
+          db.prepare('UPDATE customers SET name = ? WHERE id = ?').run(cleanName, customer.id);
+        }
+        user.customer_id = customer.id;
+        user.address = customer.address;
+      } else {
+        const custRes = db.prepare(`
+          INSERT INTO customers (user_id, name, phone, email, address)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(user.id, user.name, user.phone, user.email, 'Store Customer');
+        user.customer_id = custRes.lastInsertRowid;
+        user.address = null;
+      }
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+    }
+
+    const token = generateToken(user);
+    return res.json({
+      message: 'Customer sign in successful',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: 'customer',
+        customer_id: user.customer_id,
+        address: user.address
+      },
+      redirectTo: '/customer/products'
     });
   } catch (err) {
     next(err);

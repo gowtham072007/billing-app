@@ -114,7 +114,7 @@ export const App: React.FC = () => {
 
       {/* Auth Public Routes */}
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/register" element={<Navigate to="/login" replace />} />
 
       {/* Protected Admin Routes */}
       <Route path="/admin" element={<AdminLayout />}>
