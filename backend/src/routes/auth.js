@@ -120,67 +120,174 @@ router.post('/customer-quick-sign', (req, res, next) => {
   }
 });
 
-// POST /api/auth/login (Dual Admin & Customer Login)
+// POST /api/auth/login (Unified Common Login with Automatic Role Detection)
 router.post('/login', (req, res, next) => {
   try {
-    const { identifier, password, role, name } = req.body;
+    const rawName = req.body.name || req.body.identifier;
+    const rawSecret = req.body.secret || req.body.password || req.body.phone;
+    const role = req.body.role;
 
-    // If customer signs in with name only
-    if (role === 'customer' && (name || (!password && identifier))) {
-      const customerName = name || identifier;
-      return res.redirect(307, '/api/auth/customer-quick-sign');
+    if (!rawName || !rawSecret) {
+      return res.status(400).json({ error: 'Please enter both your name and phone number / password.' });
     }
 
-    if (!identifier || !password) {
-      return res.status(400).json({ error: 'Please provide email/phone and password.' });
-    }
+    const cleanName = String(rawName).trim();
+    const cleanSecret = String(rawSecret).trim();
+    const cleanSecretDigits = cleanSecret.replace(/\D/g, '');
 
-    const cleanIdentifier = identifier.trim().toLowerCase();
-
-    // Query user by email, phone, or name
-    const user = db.prepare(`
+    // 1. ATTEMPT ADMIN AUTHENTICATION
+    // Query admin user by Name, Email, or Phone
+    const adminCandidates = db.prepare(`
       SELECT * FROM users 
-      WHERE (LOWER(email) = ? OR phone = ? OR LOWER(name) = ?)
-    `).get(cleanIdentifier, cleanIdentifier, cleanIdentifier);
+      WHERE role = 'admin' AND (
+        LOWER(name) = LOWER(?) OR 
+        LOWER(email) = LOWER(?) OR 
+        phone = ?
+      )
+    `).all(cleanName, cleanName, cleanName);
 
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid login credentials. User not found.' });
-    }
+    for (const adminUser of adminCandidates) {
+      const adminPhoneDigits = (adminUser.phone || '').replace(/\D/g, '');
+      const phoneMatched = cleanSecretDigits.length >= 10 && (
+        adminPhoneDigits.endsWith(cleanSecretDigits.slice(-10)) ||
+        cleanSecretDigits.endsWith(adminPhoneDigits.slice(-10))
+      );
+      const passwordMatched = adminUser.password_hash && bcrypt.compareSync(cleanSecret, adminUser.password_hash);
 
-    if (user.status !== 'active') {
-      return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
-    }
+      if (phoneMatched || passwordMatched) {
+        if (adminUser.status !== 'active') {
+          return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+        }
 
-    // Role check if specified
-    if (role && user.role !== role) {
-      return res.status(403).json({ error: `Access restricted. You cannot log in as ${role}.` });
-    }
+        if (role && role !== 'admin') {
+          return res.status(403).json({ error: `Access restricted. You cannot log in as ${role}.` });
+        }
 
-    const isMatch = bcrypt.compareSync(password, user.password_hash);
-    if (!isMatch && user.role === 'admin') {
-      return res.status(401).json({ error: 'Invalid password. Please try again.' });
-    }
-
-    // Get customer profile if user is a customer
-    let customerProfile = null;
-    if (user.role === 'customer') {
-      customerProfile = db.prepare('SELECT * FROM customers WHERE user_id = ?').get(user.id);
-    }
-
-    const token = generateToken(user);
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        customer_id: customerProfile ? customerProfile.id : null,
-        address: customerProfile ? customerProfile.address : null
+        const token = generateToken(adminUser);
+        return res.json({
+          message: 'Admin login successful',
+          token,
+          user: {
+            id: adminUser.id,
+            name: adminUser.name,
+            email: adminUser.email,
+            phone: adminUser.phone,
+            role: 'admin'
+          },
+          redirectTo: '/admin/dashboard'
+        });
       }
+    }
+
+    // 2. ATTEMPT CUSTOMER AUTHENTICATION
+    // Look up registered customer in `customers` and `users` tables
+    const custMatches = db.prepare(`
+      SELECT * FROM customers 
+      WHERE LOWER(name) = LOWER(?)
+    `).all(cleanName);
+
+    const userCustMatches = db.prepare(`
+      SELECT * FROM users 
+      WHERE role = 'customer' AND (LOWER(name) = LOWER(?) OR LOWER(email) = LOWER(?))
+    `).all(cleanName, cleanName);
+
+    // Merge and check matching customer credentials
+    let authenticatedCustomer = null;
+    let matchingUserId = null;
+    let customerProfile = null;
+
+    // Check customers table matches
+    for (const cust of custMatches) {
+      const custPhoneDigits = (cust.phone || '').replace(/\D/g, '');
+      const phoneMatches = cleanSecretDigits.length >= 10 && (
+        custPhoneDigits.endsWith(cleanSecretDigits.slice(-10)) ||
+        cleanSecretDigits.endsWith(custPhoneDigits.slice(-10))
+      );
+
+      if (phoneMatches) {
+        customerProfile = cust;
+        if (cust.user_id) {
+          const userRec = db.prepare('SELECT * FROM users WHERE id = ?').get(cust.user_id);
+          if (userRec) {
+            authenticatedCustomer = userRec;
+            matchingUserId = userRec.id;
+            break;
+          }
+        }
+        // If not yet linked to user table, find or create user for this customer
+        let userByPhone = db.prepare('SELECT * FROM users WHERE phone = ?').get(cust.phone);
+        if (!userByPhone) {
+          const salt = bcrypt.genSaltSync(10);
+          const dummyHash = bcrypt.hashSync('customer123', salt);
+          const dummyEmail = `${cust.name.toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now().toString().slice(-4)}@customer.local`;
+          const userInsert = db.prepare(`
+            INSERT INTO users (name, email, phone, password_hash, role, status)
+            VALUES (?, ?, ?, ?, 'customer', 'active')
+          `).run(cust.name, dummyEmail, cust.phone, dummyHash);
+          userByPhone = db.prepare('SELECT * FROM users WHERE id = ?').get(userInsert.lastInsertRowid);
+        }
+        db.prepare('UPDATE customers SET user_id = ? WHERE id = ?').run(userByPhone.id, cust.id);
+        authenticatedCustomer = userByPhone;
+        matchingUserId = userByPhone.id;
+        break;
+      }
+    }
+
+    // Check users table customer matches if not found yet
+    if (!authenticatedCustomer) {
+      for (const u of userCustMatches) {
+        const uPhoneDigits = (u.phone || '').replace(/\D/g, '');
+        const phoneMatches = cleanSecretDigits.length >= 10 && (
+          uPhoneDigits.endsWith(cleanSecretDigits.slice(-10)) ||
+          cleanSecretDigits.endsWith(uPhoneDigits.slice(-10))
+        );
+        const passMatches = u.password_hash && bcrypt.compareSync(cleanSecret, u.password_hash);
+
+        if (phoneMatches || passMatches) {
+          authenticatedCustomer = u;
+          matchingUserId = u.id;
+          customerProfile = db.prepare('SELECT * FROM customers WHERE user_id = ? OR phone = ?').get(u.id, u.phone);
+          if (!customerProfile) {
+            const custRes = db.prepare(`
+              INSERT INTO customers (user_id, name, phone, email, address)
+              VALUES (?, ?, ?, ?, ?)
+            `).run(u.id, u.name, u.phone, u.email, 'Local Delivery');
+            customerProfile = db.prepare('SELECT * FROM customers WHERE id = ?').get(custRes.lastInsertRowid);
+          }
+          break;
+        }
+      }
+    }
+
+    if (authenticatedCustomer) {
+      if (authenticatedCustomer.status !== 'active') {
+        return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+      }
+
+      if (role && role !== 'customer') {
+        return res.status(403).json({ error: `Access restricted. You cannot log in as ${role}.` });
+      }
+
+      const token = generateToken(authenticatedCustomer);
+      return res.json({
+        message: 'Customer login successful',
+        token,
+        user: {
+          id: authenticatedCustomer.id,
+          name: authenticatedCustomer.name,
+          email: authenticatedCustomer.email,
+          phone: authenticatedCustomer.phone,
+          role: 'customer',
+          customer_id: customerProfile ? customerProfile.id : null,
+          address: customerProfile ? customerProfile.address : null
+        },
+        redirectTo: '/customer/products'
+      });
+    }
+
+    // 3. INVALID CREDENTIALS
+    return res.status(401).json({
+      error: 'Invalid login credentials. Please check your registered name and phone number / password.'
     });
   } catch (err) {
     next(err);

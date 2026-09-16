@@ -129,9 +129,9 @@ export const Register: React.FC = () => {
 
           <div className="text-center pt-2 border-t border-slate-100">
             <p className="text-xs text-slate-500">
-              Admin user?{' '}
-              <Link to="/login?role=admin" className="font-bold text-slate-900 hover:underline">
-                Admin Console
+              Already registered?{' '}
+              <Link to="/login" className="font-bold text-slate-900 hover:underline">
+                Sign In
               </Link>
             </p>
           </div>

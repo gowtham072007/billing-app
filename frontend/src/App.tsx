@@ -51,8 +51,12 @@ const AdminLayout: React.FC = () => {
     );
   }
 
-  if (!isAuthenticated || !isAdmin) {
-    return <Navigate to="/login?role=admin" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/customer/products" replace />;
   }
 
   return (

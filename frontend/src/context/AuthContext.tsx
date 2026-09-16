@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (identifier: string, password: string, role?: string) => Promise<User>;
+  login: (name: string, secret: string, role?: string) => Promise<User>;
   customerQuickSign: (name: string, phone?: string, address?: string) => Promise<User>;
   register: (data: { name: string; phone?: string; email?: string; password?: string; address?: string }) => Promise<User>;
   logout: () => void;
@@ -57,10 +57,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     checkAuth();
   }, []);
 
-  const login = async (identifier: string, password: string, role?: string): Promise<User> => {
-    const res = await api.post<{ token: string; user: User }>('/auth/login', {
-      identifier,
-      password,
+  const login = async (name: string, secret: string, role?: string): Promise<User> => {
+    const res = await api.post<{ token: string; user: User; redirectTo?: string }>('/auth/login', {
+      name,
+      secret,
       role,
     });
 
