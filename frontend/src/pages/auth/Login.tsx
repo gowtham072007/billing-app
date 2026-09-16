@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { ArrowRight, Eye, EyeOff, Phone, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowRight, Phone, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -12,7 +12,6 @@ export const Login: React.FC = () => {
 
   const [name, setName] = useState<string>('');
   const [secret, setSecret] = useState<string>('');
-  const [showSecret, setShowSecret] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -138,22 +137,13 @@ export const Login: React.FC = () => {
                   <Phone className="w-4 h-4" />
                 </div>
                 <input
-                  type={showSecret ? 'text' : 'password'}
+                  type="text"
                   required
                   value={secret}
                   onChange={e => setSecret(e.target.value)}
                   placeholder={t('phone_password_field_placeholder', 'Enter phone number')}
-                  className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal transition-colors"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal transition-colors"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowSecret(!showSecret)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                  tabIndex={-1}
-                  aria-label={showSecret ? 'Hide secret' : 'Show secret'}
-                >
-                  {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
             </div>
 
