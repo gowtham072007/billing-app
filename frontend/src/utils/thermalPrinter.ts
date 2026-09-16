@@ -313,6 +313,11 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
     return;
   }
 
+  // Measure exact element content height
+  // 1px ≈ 0.264583mm (96 dpi screen to print conversion)
+  const clientHeight = originalElement.scrollHeight || originalElement.offsetHeight || 300;
+  const contentHeightMm = Math.max(40, Math.ceil(clientHeight * 0.264583) + 4);
+
   // Remove any previously created print iframes
   const oldIframe = document.getElementById('thermal-print-iframe');
   if (oldIframe) {
@@ -361,18 +366,22 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
         <title>Receipt</title>
         <style>
           @page {
-            size: 80mm auto;
+            size: 80mm ${contentHeightMm}mm;
             margin: 0mm !important;
           }
           *, *::before, *::after {
-            box-sizing: border-box;
+            box-sizing: border-box !important;
           }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            width: 80mm;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
