@@ -38,7 +38,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   if (!bill) return null;
 
   const handleBrowserPrint = () => {
-    printReceiptElement('thermal-receipt-printable');
+    printReceiptElement('thermal-receipt-printable', paperWidth);
   };
 
   const handleSavePrinterName = () => {
@@ -79,11 +79,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         alert('✅ Receipt sent directly to thermal printer!');
       } else {
         // Fallback to iframe-based print if no USB/Serial device claimed yet
-        printReceiptElement('thermal-receipt-printable');
+        printReceiptElement('thermal-receipt-printable', paperWidth);
       }
     } catch (err: any) {
       alert('Error printing directly: ' + err.message);
-      printReceiptElement('thermal-receipt-printable');
+      printReceiptElement('thermal-receipt-printable', paperWidth);
     } finally {
       setIsDirectPrinting(false);
     }

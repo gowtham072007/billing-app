@@ -306,17 +306,15 @@ function inlineComputedStyles(source: HTMLElement, clone: HTMLElement): void {
  * This guarantees pixel-perfect reproduction regardless of which CSS framework
  * or utility classes the receipt component uses.
  */
-export function printReceiptElement(elementId: string = 'thermal-receipt-printable'): void {
+export function printReceiptElement(
+  elementId: string = 'thermal-receipt-printable',
+  paperWidth: '58mm' | '80mm' | '100mm' | string = '80mm'
+): void {
   const originalElement = document.getElementById(elementId);
   if (!originalElement) {
     window.print();
     return;
   }
-
-  // Measure exact element content height
-  // 1px ≈ 0.264583mm (96 dpi screen to print conversion)
-  const clientHeight = originalElement.scrollHeight || originalElement.offsetHeight || 300;
-  const contentHeightMm = Math.max(40, Math.ceil(clientHeight * 0.264583) + 4);
 
   // Remove any previously created print iframes
   const oldIframe = document.getElementById('thermal-print-iframe');
@@ -327,11 +325,11 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
   // Deep-clone with all computed styles inlined
   const styledClone = cloneWithInlineStyles(originalElement);
 
-  // Override critical print-specific styles on the root clone
-  styledClone.style.setProperty('width', '72mm', 'important');
-  styledClone.style.setProperty('max-width', '80mm', 'important');
-  styledClone.style.setProperty('margin', '0 auto', 'important');
-  styledClone.style.setProperty('padding', '2mm 1.5mm', 'important');
+  // Set full width on the root clone to utilize the entire paper width
+  styledClone.style.setProperty('width', '100%', 'important');
+  styledClone.style.setProperty('max-width', '100%', 'important');
+  styledClone.style.setProperty('margin', '0', 'important');
+  styledClone.style.setProperty('padding', '0', 'important');
   styledClone.style.setProperty('background', '#ffffff', 'important');
   styledClone.style.setProperty('color', '#000000', 'important');
   styledClone.style.setProperty('box-shadow', 'none', 'important');
@@ -357,6 +355,8 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
     return;
   }
 
+  const pageSize = paperWidth === '58mm' ? '58mm auto' : paperWidth === '100mm' ? '100mm auto' : '80mm auto';
+
   doc.open();
   doc.write(`
     <!DOCTYPE html>
@@ -366,7 +366,7 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
         <title>Receipt</title>
         <style>
           @page {
-            size: 80mm ${contentHeightMm}mm;
+            size: ${pageSize};
             margin: 0mm !important;
           }
           *, *::before, *::after {
@@ -377,19 +377,33 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            width: 80mm !important;
-            max-width: 80mm !important;
+            width: 100% !important;
+            max-width: 100% !important;
             height: auto !important;
             min-height: 0 !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Latha", "Mukta Malar", "Tamil Sangam MN" !important;
           }
-          /* Ensure all colors print as black on white for thermal printers */
+          #thermal-receipt-printable {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 1mm 1mm 2mm 1mm !important;
+            box-sizing: border-box !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            break-inside: avoid !important;
+          }
+          /* Ensure all colors print as pure high-contrast black for thermal printers */
           body * {
             color: #000000 !important;
           }
           table {
+            width: 100% !important;
             border-collapse: collapse !important;
           }
         </style>
@@ -416,5 +430,5 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
         printIframe.remove();
       }
     }, 3000);
-  }, 350);
+  }, 300);
 }
