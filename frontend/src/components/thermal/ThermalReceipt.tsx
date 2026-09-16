@@ -79,13 +79,13 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       <div className="border-t border-black my-1 border-dashed"></div>
 
       {/* Items Table - Product Name Printed in Tamil / English */}
-      <table className="w-full text-left text-[10px] sm:text-[11px] border-collapse">
+      <table className="w-full text-left text-[10px] sm:text-[11px] border-collapse" style={{ tableLayout: 'fixed' }}>
         <thead>
-          <tr className="border-b border-black text-[10px] font-bold">
-            <th className="py-1 text-left w-[46%]">பொருள்</th>
-            <th className="py-1 text-center w-[14%]">அளவு</th>
-            <th className="py-1 text-right w-[18%]">விலை</th>
-            <th className="py-1 text-right w-[22%]">மொத்தம்</th>
+          <tr className="border-b border-black text-[10px] sm:text-[11px] font-bold">
+            <th className="py-1 text-left" style={{ width: '44%' }}>பொருள்</th>
+            <th className="py-1 text-center" style={{ width: '12%' }}>அளவு</th>
+            <th className="py-1 text-right" style={{ width: '20%' }}>விலை</th>
+            <th className="py-1 text-right" style={{ width: '24%' }}>மொத்தம்</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-dotted divide-slate-300">
@@ -96,7 +96,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
             return (
               <tr key={index} className="print:border-none">
-                <td className="py-1.5 pr-1 break-words leading-tight">
+                <td className="py-1.5 pr-1 break-words leading-tight align-top">
                   <span className="font-extrabold text-black block text-[11px] sm:text-[12px] leading-snug">
                     {printName}
                   </span>
@@ -106,9 +106,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     </span>
                   )}
                 </td>
-                <td className="py-1.5 text-center font-mono font-bold align-top">{item.quantity}</td>
-                <td className="py-1.5 text-right font-mono align-top">{Number(item.price).toFixed(2)}</td>
-                <td className="py-1.5 text-right font-mono font-bold align-top">
+                <td className="py-1.5 text-center font-mono font-bold align-top text-[10px] sm:text-[11px]">{item.quantity}</td>
+                <td className="py-1.5 text-right font-mono align-top text-[10px] sm:text-[11px]">{Number(item.price).toFixed(2)}</td>
+                <td className="py-1.5 text-right font-mono font-bold align-top text-[10px] sm:text-[11px]">
                   {Number(item.total).toFixed(2)}
                 </td>
               </tr>

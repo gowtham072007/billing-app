@@ -226,8 +226,85 @@ export async function printDirectRaw(bill: Bill, items: BillItem[], settings?: P
 }
 
 /**
- * Print receipt using an isolated hidden iframe so only the receipt content is sent to the printer
- * with 100% pixel-perfect matching styling to the on-screen preview.
+ * Deep-clone a DOM element and inline all computed styles onto every node.
+ * This ensures the cloned tree renders identically in an isolated iframe
+ * without needing any external stylesheets (Tailwind, custom CSS, etc.).
+ */
+function cloneWithInlineStyles(source: HTMLElement): HTMLElement {
+  const clone = source.cloneNode(true) as HTMLElement;
+
+  // Walk source tree and clone tree in parallel, copying computed styles
+  const sourceWalker = document.createTreeWalker(source, NodeFilter.SHOW_ELEMENT);
+  const cloneWalker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT);
+
+  // Process the root nodes first
+  inlineComputedStyles(source, clone);
+
+  // Walk all descendant element pairs
+  while (sourceWalker.nextNode() && cloneWalker.nextNode()) {
+    const srcNode = sourceWalker.currentNode as HTMLElement;
+    const clnNode = cloneWalker.currentNode as HTMLElement;
+    inlineComputedStyles(srcNode, clnNode);
+  }
+
+  return clone;
+}
+
+/**
+ * Copy all computed style properties from a source element onto a clone
+ * element as inline styles, then strip the class attribute (no longer needed).
+ */
+function inlineComputedStyles(source: HTMLElement, clone: HTMLElement): void {
+  const computed = window.getComputedStyle(source);
+
+  // Key layout/visual properties to inline — covers everything Tailwind generates
+  const properties = [
+    'display', 'visibility', 'opacity',
+    'position', 'top', 'right', 'bottom', 'left', 'z-index',
+    'width', 'min-width', 'max-width', 'height', 'min-height', 'max-height',
+    'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+    'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'box-sizing',
+    'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'flex-basis',
+    'justify-content', 'align-items', 'align-self', 'gap', 'order',
+    'font-family', 'font-size', 'font-weight', 'font-style',
+    'line-height', 'letter-spacing', 'text-align', 'text-transform', 'text-decoration',
+    'white-space', 'word-break', 'overflow-wrap',
+    'color', 'background-color', 'background',
+    'border', 'border-top', 'border-right', 'border-bottom', 'border-left',
+    'border-width', 'border-style', 'border-color',
+    'border-top-width', 'border-top-style', 'border-top-color',
+    'border-bottom-width', 'border-bottom-style', 'border-bottom-color',
+    'border-collapse', 'border-spacing',
+    'border-radius',
+    'vertical-align',
+    'table-layout',
+    'overflow', 'overflow-x', 'overflow-y',
+  ];
+
+  for (const prop of properties) {
+    const value = computed.getPropertyValue(prop);
+    if (value) {
+      clone.style.setProperty(prop, value);
+    }
+  }
+
+  // Remove class attribute — styles are now inline, classes would be meaningless in the iframe
+  clone.removeAttribute('class');
+}
+
+/**
+ * Print receipt using an isolated hidden iframe.
+ *
+ * Instead of trying to replicate Tailwind CSS inside the iframe (which is fragile
+ * and leads to blank prints), this approach:
+ *   1. Deep-clones the receipt DOM tree
+ *   2. Inlines ALL computed styles onto every element via getComputedStyle()
+ *   3. Writes the fully-inlined HTML into the iframe with only a minimal reset
+ *   4. Sets proper @page dimensions for 80mm thermal paper
+ *
+ * This guarantees pixel-perfect reproduction regardless of which CSS framework
+ * or utility classes the receipt component uses.
  */
 export function printReceiptElement(elementId: string = 'thermal-receipt-printable'): void {
   const originalElement = document.getElementById(elementId);
@@ -242,6 +319,23 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
     oldIframe.remove();
   }
 
+  // Deep-clone with all computed styles inlined
+  const styledClone = cloneWithInlineStyles(originalElement);
+
+  // Override critical print-specific styles on the root clone
+  styledClone.style.setProperty('width', '72mm', 'important');
+  styledClone.style.setProperty('max-width', '80mm', 'important');
+  styledClone.style.setProperty('margin', '0 auto', 'important');
+  styledClone.style.setProperty('padding', '2mm 1.5mm', 'important');
+  styledClone.style.setProperty('background', '#ffffff', 'important');
+  styledClone.style.setProperty('color', '#000000', 'important');
+  styledClone.style.setProperty('box-shadow', 'none', 'important');
+  styledClone.style.setProperty('border', 'none', 'important');
+  styledClone.style.setProperty('box-sizing', 'border-box', 'important');
+
+  const receiptHtml = styledClone.outerHTML;
+
+  // Create hidden print iframe
   const iframe = document.createElement('iframe');
   iframe.id = 'thermal-print-iframe';
   iframe.style.position = 'fixed';
@@ -258,9 +352,6 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
     return;
   }
 
-  // Extract cloned receipt HTML
-  const receiptHtml = originalElement.outerHTML;
-
   doc.open();
   doc.write(`
     <!DOCTYPE html>
@@ -270,180 +361,27 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
         <title>Receipt</title>
         <style>
           @page {
-            size: auto;
+            size: 80mm auto;
             margin: 0mm !important;
           }
           *, *::before, *::after {
-            box-sizing: border-box !important;
-            margin: 0;
-            padding: 0;
+            box-sizing: border-box;
           }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-            font-size: 11px !important;
-            line-height: 1.3 !important;
+            width: 80mm;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          #thermal-receipt-printable {
-            width: 76mm !important;
-            max-width: 80mm !important;
-            margin: 0 auto !important;
-            padding: 3mm 2mm !important;
-            background: #ffffff !important;
+          /* Ensure all colors print as black on white for thermal printers */
+          body * {
             color: #000000 !important;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-            font-size: 11px !important;
-            line-height: 1.3 !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          .flex {
-            display: flex !important;
-          }
-          .justify-between {
-            justify-content: space-between !important;
-          }
-          .items-center {
-            align-items: center !important;
-          }
-          .text-center {
-            text-align: center !important;
-          }
-          .text-left {
-            text-align: left !important;
-          }
-          .text-right {
-            text-align: right !important;
-          }
-          .font-black, .font-extrabold {
-            font-weight: 900 !important;
-          }
-          .font-bold {
-            font-weight: 700 !important;
-          }
-          .font-medium {
-            font-weight: 500 !important;
-          }
-          .font-mono {
-            font-family: "Courier New", Courier, Consolas, monospace !important;
-          }
-          .font-sans {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-          }
-          .uppercase {
-            text-transform: uppercase !important;
-          }
-          .tracking-wider {
-            letter-spacing: 0.05em !important;
-          }
-          .tracking-widest {
-            letter-spacing: 0.15em !important;
-          }
-          .whitespace-pre-line {
-            white-space: pre-line !important;
-          }
-          .break-words {
-            word-break: break-word !important;
-          }
-          .block {
-            display: block !important;
-          }
-          .border-t {
-            border-top: 1px solid #000000 !important;
-          }
-          .border-b {
-            border-bottom: 1px solid #000000 !important;
-          }
-          .border-black {
-            border-color: #000000 !important;
-          }
-          .border-dashed {
-            border-style: dashed !important;
-          }
-          .my-1 {
-            margin-top: 4px !important;
-            margin-bottom: 4px !important;
-          }
-          .mt-0\\.5 {
-            margin-top: 2px !important;
-          }
-          .mt-1 {
-            margin-top: 4px !important;
-          }
-          .mt-2 {
-            margin-top: 8px !important;
-          }
-          .pt-0\\.5 {
-            padding-top: 2px !important;
-          }
-          .pt-1 {
-            padding-top: 4px !important;
-          }
-          .pt-3 {
-            padding-top: 8px !important;
-          }
-          .pb-1 {
-            padding-bottom: 4px !important;
-          }
-          .pb-2 {
-            padding-bottom: 6px !important;
-          }
-          .py-0\\.5 {
-            padding-top: 2px !important;
-            padding-bottom: 2px !important;
-          }
-          .py-1 {
-            padding-top: 3px !important;
-            padding-bottom: 3px !important;
-          }
-          .py-1\\.5 {
-            padding-top: 4px !important;
-            padding-bottom: 4px !important;
-          }
-          .space-y-0\\.5 > * + * {
-            margin-top: 2px !important;
-          }
-          .space-y-1 > * + * {
-            margin-top: 4px !important;
-          }
-          .text-sm {
-            font-size: 13px !important;
-          }
-          .text-base {
-            font-size: 14px !important;
-          }
-          .text-\\[8px\\] {
-            font-size: 8px !important;
-          }
-          .text-\\[9px\\] {
-            font-size: 9px !important;
-          }
-          .text-\\[10px\\] {
-            font-size: 10px !important;
-          }
-          .text-\\[11px\\] {
-            font-size: 11px !important;
-          }
-          .text-\\[12px\\] {
-            font-size: 12px !important;
           }
           table {
-            width: 100% !important;
             border-collapse: collapse !important;
-          }
-          th, td {
-            padding: 3px 0 !important;
-          }
-          .align-top {
-            vertical-align: top !important;
-          }
-          .divide-y > * + * {
-            border-top: 1px dotted #ccc !important;
           }
         </style>
       </head>
@@ -454,6 +392,7 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
   `);
   doc.close();
 
+  // Wait for the iframe content to fully render before triggering print
   setTimeout(() => {
     try {
       iframe.contentWindow?.focus();
@@ -461,5 +400,12 @@ export function printReceiptElement(elementId: string = 'thermal-receipt-printab
     } catch {
       window.print();
     }
-  }, 250);
+    // Clean up the iframe after a delay to allow the print dialog to process
+    setTimeout(() => {
+      const printIframe = document.getElementById('thermal-print-iframe');
+      if (printIframe) {
+        printIframe.remove();
+      }
+    }, 3000);
+  }, 350);
 }

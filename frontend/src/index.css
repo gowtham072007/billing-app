@@ -78,11 +78,12 @@
 
 /* ========================================================================= */
 /* EXACT THERMAL RECEIPT ROLL PRINT MEDIA ENGINE (80MM / 3-INCH & 58MM)     */
+/* Fallback for when window.print() is called directly (not via iframe).    */
 /* ========================================================================= */
 @media print {
   @page {
     margin: 0mm !important;
-    size: auto;
+    size: 80mm auto;
   }
 
   /* Reset body and html for zero margins and height */
@@ -114,13 +115,12 @@
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 76mm !important; /* Standard printable roll width for 80mm */
+    width: 72mm !important;
     max-width: 80mm !important;
     min-width: 70mm !important;
     margin: 0 !important;
-    padding: 2mm 1mm !important;
+    padding: 2mm 1.5mm !important;
     background-color: #ffffff !important;
-    font-family: "JetBrains Mono", Consolas, "Courier New", Courier, monospace, sans-serif !important;
     font-size: 11px !important;
     line-height: 1.25 !important;
     box-shadow: none !important;
