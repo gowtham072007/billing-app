@@ -405,7 +405,17 @@ export function printReceiptElement(
           table {
             width: 100% !important;
             border-collapse: collapse !important;
+            table-layout: fixed !important;
           }
+          th, td {
+            box-sizing: border-box !important;
+          }
+          .text-left { text-align: left !important; }
+          .text-center { text-align: center !important; }
+          .text-right { text-align: right !important; }
+          .flex { display: flex !important; }
+          .justify-between { justify-content: space-between !important; }
+          .items-center { align-items: center !important; }
         </style>
       </head>
       <body>

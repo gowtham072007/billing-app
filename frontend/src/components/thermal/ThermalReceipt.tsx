@@ -43,72 +43,104 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   return (
     <div
       id="thermal-receipt-printable"
-      className={`bg-white text-black font-sans text-xs leading-tight p-2 sm:p-3 mx-auto border border-dashed border-slate-300 print:border-none print:p-0 print:m-0 print:w-full print:max-w-none select-text ${previewWidthClass}`}
+      className={`bg-white text-black font-sans text-xs leading-normal p-2 sm:p-3 mx-auto select-text ${previewWidthClass}`}
       style={{ boxSizing: 'border-box' }}
     >
       {/* Header Section */}
-      <div className="text-center pb-1">
-        <h2 className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">{shopName}</h2>
-        <p className="text-[11px] sm:text-xs whitespace-pre-line font-medium mt-0.5">{shopAddress}</p>
-        <p className="text-[11px] sm:text-xs font-semibold mt-0.5">Ph: {shopPhone}</p>
-        {shopGstin && <p className="text-[10px] sm:text-[11px] font-mono mt-0.5">GSTIN: {shopGstin}</p>}
-      </div>
-
-      <div className="text-center font-black tracking-widest text-xs my-1 py-1 border-t-2 border-b-2 border-black uppercase">
-        TAX INVOICE
-      </div>
-
-      {/* Bill Meta Info */}
-      <div className="text-[11px] sm:text-xs space-y-0.5 py-1 font-mono">
-        <div className="flex justify-between font-bold">
-          <span>Bill No: <span className="font-extrabold text-black">{bill.bill_number}</span></span>
-          <span>Date: {dateStr}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Customer: {bill.customer_name || 'Walk-in'}</span>
-          <span>Time: {timeStr}</span>
-        </div>
-        {bill.customer_phone && (
-          <div>
-            <span>Mobile: {bill.customer_phone}</span>
-          </div>
+      <div className="text-center pb-1 space-y-0.5">
+        <h2 className="text-base sm:text-lg font-black uppercase tracking-wider leading-tight">
+          {shopName}
+        </h2>
+        <p className="text-[11px] whitespace-pre-line font-medium leading-tight text-black">
+          {shopAddress}
+        </p>
+        <p className="text-[11px] font-semibold text-black">Ph: {shopPhone}</p>
+        {shopGstin && (
+          <p className="text-[10px] font-mono font-medium text-black">GSTIN: {shopGstin}</p>
         )}
       </div>
 
-      {/* Divider */}
-      <div className="border-t-2 border-black my-1 border-dashed"></div>
+      {/* Tax Invoice Banner */}
+      <div className="text-center font-bold tracking-widest text-[11px] my-1.5 py-0.5 border-t border-b border-black uppercase">
+        TAX INVOICE
+      </div>
 
-      {/* Items Table - Product Name Printed in Tamil / English */}
-      <table className="w-full text-left text-[11px] sm:text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
+      {/* Bill Meta Info - Structured 2-Column Table */}
+      <table className="w-full text-[11px] font-mono border-collapse my-1" style={{ tableLayout: 'fixed' }}>
+        <tbody>
+          <tr>
+            <td className="text-left py-0.5" style={{ width: '60%' }}>
+              Bill No: <span className="font-extrabold text-black">{bill.bill_number}</span>
+            </td>
+            <td className="text-right py-0.5 font-sans" style={{ width: '40%' }}>
+              Date: <span className="font-medium">{dateStr}</span>
+            </td>
+          </tr>
+          <tr>
+            <td className="text-left py-0.5 truncate" style={{ width: '60%' }}>
+              Customer: <span className="font-medium">{bill.customer_name || 'Walk-in'}</span>
+            </td>
+            <td className="text-right py-0.5 font-sans" style={{ width: '40%' }}>
+              Time: <span className="font-medium">{timeStr}</span>
+            </td>
+          </tr>
+          {bill.customer_phone && (
+            <tr>
+              <td colSpan={2} className="text-left py-0.5">
+                Mobile: <span className="font-medium">{bill.customer_phone}</span>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Divider */}
+      <div className="border-t border-dashed border-black my-1.5"></div>
+
+      {/* Items Table - Fixed Width Columns with Perfect Alignment */}
+      <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
         <thead>
-          <tr className="border-b-2 border-black text-[11px] sm:text-xs font-black uppercase">
-            <th className="py-1 text-left" style={{ width: '45%' }}>பொருள்</th>
-            <th className="py-1 text-center" style={{ width: '13%' }}>அளவு</th>
-            <th className="py-1 text-right" style={{ width: '18%' }}>விலை</th>
-            <th className="py-1 text-right" style={{ width: '24%' }}>மொத்தம்</th>
+          <tr className="border-b border-black text-[11px] font-bold">
+            <th className="py-1 text-left" style={{ width: '44%' }}>
+              பொருள்
+            </th>
+            <th className="py-1 text-center" style={{ width: '14%' }}>
+              அளவு
+            </th>
+            <th className="py-1 text-right" style={{ width: '20%' }}>
+              விலை
+            </th>
+            <th className="py-1 text-right" style={{ width: '22%' }}>
+              மொத்தம்
+            </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-dotted divide-slate-400">
+        <tbody>
           {items.map((item, index) => {
-            const printName = item.product_name_tamil && item.product_name_tamil.trim()
-              ? item.product_name_tamil.trim()
-              : item.product_name;
+            const printName =
+              item.product_name_tamil && item.product_name_tamil.trim()
+                ? item.product_name_tamil.trim()
+                : item.product_name;
 
             return (
-              <tr key={index} className="print:border-none">
-                <td className="py-1 pr-1 break-words leading-tight align-top">
-                  <span className="font-bold text-black block text-xs sm:text-[13px] leading-snug">
+              <tr key={index} className="border-b border-dotted border-neutral-300">
+                <td className="py-1 pr-1 text-left align-top leading-tight">
+                  <span className="font-bold text-black block text-[12px]">
                     {printName}
                   </span>
                   {item.unit && item.unit !== 'pcs' && (
-                    <span className="text-[10px] text-slate-700 block font-medium">
+                    <span className="text-[10px] text-neutral-700 block">
                       ({item.unit})
                     </span>
                   )}
                 </td>
-                <td className="py-1 text-center font-mono font-bold align-top text-xs">{item.quantity}</td>
-                <td className="py-1 text-right font-mono align-top text-xs">{Number(item.price).toFixed(2)}</td>
-                <td className="py-1 text-right font-mono font-bold align-top text-xs">
+                <td className="py-1 text-center font-mono font-medium align-top text-[11px]">
+                  {item.quantity}
+                </td>
+                <td className="py-1 text-right font-mono align-top text-[11px]">
+                  {Number(item.price).toFixed(2)}
+                </td>
+                <td className="py-1 text-right font-mono font-bold align-top text-[11px]">
                   {Number(item.total).toFixed(2)}
                 </td>
               </tr>
@@ -118,46 +150,51 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       </table>
 
       {/* Divider */}
-      <div className="border-t-2 border-black my-1 border-dashed"></div>
+      <div className="border-t border-dashed border-black my-1.5"></div>
 
       {/* Calculations & Totals */}
-      <div className="text-[11px] sm:text-xs space-y-1 font-mono">
-        <div className="flex justify-between">
+      <div className="text-[11px] space-y-0.5 font-mono">
+        <div className="flex justify-between items-center py-0.5">
           <span>கூட்டுத்தொகை (Subtotal):</span>
           <span className="font-bold">{Number(bill.subtotal || 0).toFixed(2)}</span>
         </div>
 
         {Number(bill.discount || 0) > 0 && (
-          <div className="flex justify-between text-slate-800">
-            <span>தள்ளுபடி (Discount) {bill.discount_type === 'percentage' ? `(${bill.discount}%)` : ''}:</span>
+          <div className="flex justify-between items-center py-0.5 text-neutral-800">
+            <span>
+              தள்ளுபடி (Discount){' '}
+              {bill.discount_type === 'percentage' ? `(${bill.discount}%)` : ''}:
+            </span>
             <span className="font-bold">- {Number(bill.discount).toFixed(2)}</span>
           </div>
         )}
 
         {Number(bill.tax || 0) > 0 && (
-          <div className="flex justify-between text-slate-800">
-            <span>வரி (Tax) {bill.tax_percentage ? `(${bill.tax_percentage}%)` : ''}:</span>
+          <div className="flex justify-between items-center py-0.5 text-neutral-800">
+            <span>
+              வரி (Tax) {bill.tax_percentage ? `(${bill.tax_percentage}%)` : ''}:
+            </span>
             <span className="font-bold">+ {Number(bill.tax).toFixed(2)}</span>
           </div>
         )}
 
-        <div className="border-t-2 border-black my-1"></div>
-
-        <div className="flex justify-between items-center text-sm sm:text-base font-black py-0.5">
-          <span className="uppercase">மொத்தத் தொகை (TOTAL)</span>
-          <span className="font-mono text-base sm:text-lg font-black">
+        {/* Grand Total Bar */}
+        <div className="border-t-2 border-b-2 border-black my-1.5 py-1 flex justify-between items-center">
+          <span className="font-black text-xs uppercase tracking-wide">
+            மொத்தம் (TOTAL)
+          </span>
+          <span className="font-mono text-sm sm:text-base font-black">
             ₹{Number(bill.grand_total || 0).toFixed(2)}
           </span>
         </div>
 
-        <div className="border-b-2 border-black my-1"></div>
-
-        <div className="flex justify-between text-[11px] sm:text-xs pt-0.5 font-sans">
+        {/* Payment Details */}
+        <div className="flex justify-between items-center py-0.5 text-[11px] font-sans">
           <span>பணம் செலுத்திய முறை:</span>
           <span className="uppercase font-bold">{bill.payment_method || 'CASH'}</span>
         </div>
         {bill.payment_reference && (
-          <div className="flex justify-between text-[10px] text-slate-700 font-sans">
+          <div className="flex justify-between items-center py-0.5 text-[10px] text-neutral-700 font-sans">
             <span>Ref / Note:</span>
             <span className="font-mono">{bill.payment_reference}</span>
           </div>
@@ -165,9 +202,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       </div>
 
       {/* Footer message */}
-      <div className="text-center pt-2 pb-1 mt-1 text-[11px] sm:text-xs font-bold whitespace-pre-line border-t border-black">
+      <div className="text-center pt-2 pb-1 mt-2 text-[11px] font-bold whitespace-pre-line border-t border-dashed border-black space-y-0.5">
         <p>{footerMessage}</p>
-        <p className="text-[9px] text-slate-600 font-mono mt-0.5">
+        <p className="text-[9px] text-neutral-600 font-mono font-normal">
           *** Software: QuickBill POS System ***
         </p>
       </div>
