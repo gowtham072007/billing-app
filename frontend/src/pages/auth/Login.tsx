@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { ArrowRight, Eye, EyeOff, Lock, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Phone, User as UserIcon, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -45,7 +45,7 @@ export const Login: React.FC = () => {
     }
 
     if (!cleanSecret) {
-      setErrorMessage(t('phone_password_field_placeholder', 'Please enter your phone number or password.'));
+      setErrorMessage(t('phone_password_field_placeholder', 'Please enter your phone number.'));
       return;
     }
 
@@ -128,21 +128,21 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Field 2: Phone Number / Password */}
+            {/* Field 2: Phone Number */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                {t('phone_password_field_label', 'Phone Number / Password')} <span className="text-rose-600 font-bold">*</span>
+                {t('phone_password_field_label', 'Phone Number')} <span className="text-rose-600 font-bold">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4" />
+                  <Phone className="w-4 h-4" />
                 </div>
                 <input
                   type={showSecret ? 'text' : 'password'}
                   required
                   value={secret}
                   onChange={e => setSecret(e.target.value)}
-                  placeholder={t('phone_password_field_placeholder', 'Enter phone number or password')}
+                  placeholder={t('phone_password_field_placeholder', 'Enter phone number')}
                   className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal transition-colors"
                 />
                 <button
