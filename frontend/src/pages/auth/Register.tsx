@@ -107,7 +107,7 @@ export const Register: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Delivery / Home Address (Optional)</label>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Home Address (Optional)</label>
               <input
                 type="text"
                 value={address}

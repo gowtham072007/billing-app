@@ -282,7 +282,7 @@ export const MyOrders: React.FC = () => {
                     <p className="text-slate-600">{order.items_summary}</p>
                     {order.delivery_address && (
                       <p className="text-slate-500 pt-1">
-                        <strong>Delivery/Address:</strong> {order.delivery_address}
+                        <strong>Address / Notes:</strong> {order.delivery_address}
                       </p>
                     )}
                   </div>

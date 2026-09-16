@@ -426,7 +426,7 @@ export const Orders: React.FC = () => {
 
             {selectedOrder.delivery_address && (
               <div className="p-2.5 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
-                <span className="font-bold text-slate-700 block mb-0.5">Delivery Address:</span>
+                <span className="font-bold text-slate-700 block mb-0.5">Address / Notes:</span>
                 {selectedOrder.delivery_address}
               </div>
             )}

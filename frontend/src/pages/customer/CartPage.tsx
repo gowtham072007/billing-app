@@ -25,7 +25,6 @@ export const CartPage: React.FC = () => {
   const { settings } = useSettings();
   const navigate = useNavigate();
 
-  const [deliveryAddress, setDeliveryAddress] = useState<string>(user?.address || '');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -51,7 +50,6 @@ export const CartPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       const payload = {
-        delivery_address: deliveryAddress.trim() || undefined,
         notes: notes.trim() || undefined,
         items: items.map(item => ({
           product_id: item.product.id,
@@ -135,7 +133,7 @@ export const CartPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Review Cart & Checkout</h1>
         <p className="text-xs text-slate-500 mt-1">
-          Review your items, provide pickup or delivery details, and confirm order
+          Review your items and confirm your order for quick store pickup
         </p>
       </div>
 
@@ -235,20 +233,20 @@ export const CartPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Right: Checkout & Delivery Form (5 cols on lg) */}
+          {/* Right: Checkout & Instructions Form (5 cols on lg) */}
           <form onSubmit={handleCheckout} className="lg:col-span-5 space-y-4">
-            {/* Delivery Info Box */}
+            {/* Pickup & Order Instructions Box */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-brand-600" />
-                <span>Delivery / Pickup Instructions</span>
+                <Store className="w-4 h-4 text-brand-600" />
+                <span>Store Pickup & Instructions</span>
               </h3>
 
               {!isAuthenticated ? (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
                   <p className="font-bold">Sign in required to place order</p>
                   <p className="text-[11px] text-amber-700">
-                    You can review your items now, and we'll take you to a 10-second login on checkout.
+                    You can review your items now, and we'll take you to a quick login on checkout.
                   </p>
                 </div>
               ) : (
@@ -259,26 +257,13 @@ export const CartPage: React.FC = () => {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Delivery Address / Location Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={deliveryAddress}
-                  onChange={e => setDeliveryAddress(e.target.value)}
-                  placeholder="e.g. 12/4, Gandhi Street, Near Temple, Chennai"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:border-brand-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Special Order Instructions (Optional)
+                  Special Instructions (Optional)
                 </label>
                 <input
                   type="text"
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder="e.g. Please pack in separate bags, pickup at 6 PM"
+                  placeholder="e.g. Please pack items in separate bags, pickup at 6 PM"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:border-brand-500 outline-none"
                 />
               </div>
@@ -290,10 +275,6 @@ export const CartPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span>Subtotal ({totalItems} items):</span>
                   <span className="font-mono font-semibold text-white">₹{subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Estimated Delivery / Service:</span>
-                  <span className="font-semibold text-emerald-400">FREE</span>
                 </div>
               </div>
 
