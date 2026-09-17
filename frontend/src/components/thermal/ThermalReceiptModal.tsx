@@ -90,39 +90,40 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   };
 
   const handleCopyText = () => {
+    const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     const textReceipt = `
-================================
-${settings?.shop_name || 'Vilmani Store'}
+================================================
+${(settings?.shop_name || 'Vilmani Store').toUpperCase()}
 ${settings?.shop_address || ''}
 Ph: ${settings?.shop_phone || ''}
-================================
+${settings?.shop_gstin ? `GSTIN: ${settings.shop_gstin}` : ''}
+================================================
 TAX INVOICE
-Bill No: ${bill.bill_number}
-Date: ${new Date(bill.created_at).toLocaleDateString('en-IN')}
-Customer: ${bill.customer_name || 'Walk-in'}
---------------------------------
-ITEM          QTY   RATE   TOTAL
---------------------------------
+------------------------------------------------
+Bill No: ${bill.bill_number.padEnd(23)} Date: ${new Date(bill.created_at).toLocaleDateString('en-IN')}
+Customer: ${(bill.customer_name || 'Walk-in').slice(0, 22).padEnd(22)} Time: ${new Date(bill.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+${bill.customer_phone ? `Mobile: ${bill.customer_phone.padEnd(24)} Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n` : ''}------------------------------------------------
+NO  ITEM                  QTY    PRICE    AMOUNT
+------------------------------------------------
 ${items
   .map(
-    i =>
-      `${(i.product_name || 'Item').slice(0, 14).padEnd(14)} ${String(i.quantity).padStart(3)} ${Number(
-        i.price
-      )
-        .toFixed(0)
-        .padStart(6)} ${Number(i.total).toFixed(0).padStart(7)}`
+    (item, index) =>
+      `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
+        .slice(0, 20)
+        .padEnd(21)}${String(item.quantity).padStart(4)}${Number(item.price)
+        .toFixed(2)
+        .padStart(9)}${Number(item.total).toFixed(2).padStart(10)}`
   )
   .join('\n')}
---------------------------------
-Subtotal:                    ₹${Number(bill.subtotal || 0).toFixed(2)}
-Discount:                    ₹${Number(bill.discount || 0).toFixed(2)}
-Tax:                         ₹${Number(bill.tax || 0).toFixed(2)}
---------------------------------
-GRAND TOTAL:                 ₹${Number(bill.grand_total || 0).toFixed(2)}
-Payment: ${bill.payment_method.toUpperCase()}
-================================
-${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}
-================================
+------------------------------------------------
+Items: ${String(items.length).padEnd(19)} Total Qty: ${totalQty}
+Subtotal:                        ₹${Number(bill.subtotal || 0).toFixed(2).padStart(10)}
+${Number(bill.discount || 0) > 0 ? `Discount:                       -₹${Number(bill.discount).toFixed(2).padStart(10)}\n` : ''}${Number(bill.tax || 0) > 0 ? `Tax / GST:                      +₹${Number(bill.tax).toFixed(2).padStart(10)}\n` : ''}================================================
+TOTAL:                           ₹${Number(bill.grand_total || 0).toFixed(2).padStart(10)}
+Payment Method: ${(bill.payment_method || 'CASH').toUpperCase()}
+${bill.payment_reference ? `Ref / Note: ${bill.payment_reference}\n` : ''}================================================
+${settings?.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'}
+*** QuickBill POS System ***
 `;
     navigator.clipboard.writeText(textReceipt.trim());
     setCopied(true);

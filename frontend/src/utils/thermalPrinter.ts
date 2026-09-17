@@ -107,6 +107,9 @@ export async function connectWebSerialPrinter(): Promise<{ success: boolean; nam
 /**
  * Format receipt text into ESC/POS raw bytes
  */
+/**
+ * Format receipt text into ESC/POS raw bytes
+ */
 export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Partial<ShopSettings>): Uint8Array {
   const ESC = 0x1b;
   const GS = 0x1d;
@@ -133,43 +136,67 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   if (settings?.shop_phone) {
     chunks.push(...encoder.encode(`Ph: ${settings.shop_phone}\n`));
   }
-  chunks.push(...encoder.encode('================================\n'));
-  chunks.push(...encoder.encode('TAX INVOICE\n'));
-  chunks.push(...encoder.encode('--------------------------------\n'));
-
-  // Left align
-  chunks.push(ESC, 0x61, 0x00);
-  chunks.push(...encoder.encode(`Bill No: ${bill.bill_number}\n`));
-  chunks.push(...encoder.encode(`Date: ${new Date(bill.created_at).toLocaleDateString('en-IN')}  Time: ${new Date(bill.created_at).toLocaleTimeString('en-IN')}\n`));
-  chunks.push(...encoder.encode(`Customer: ${bill.customer_name || 'Walk-in'}\n`));
-  if (bill.customer_phone) {
-    chunks.push(...encoder.encode(`Mobile: ${bill.customer_phone}\n`));
+  if (settings?.shop_gstin) {
+    chunks.push(...encoder.encode(`GSTIN: ${settings.shop_gstin}\n`));
   }
-  chunks.push(...encoder.encode('--------------------------------\n'));
-  chunks.push(...encoder.encode('ITEM          QTY   RATE   TOTAL\n'));
-  chunks.push(...encoder.encode('--------------------------------\n'));
+  chunks.push(...encoder.encode('================================================\n'));
+  chunks.push(...encoder.encode('TAX INVOICE\n'));
+  chunks.push(...encoder.encode('------------------------------------------------\n'));
+
+  // Left align for bill metadata
+  chunks.push(ESC, 0x61, 0x00);
+  const dateStr = new Date(bill.created_at).toLocaleDateString('en-IN');
+  const timeStr = new Date(bill.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  
+  const billLine = `Bill No: ${bill.bill_number}`.padEnd(28) + `Date: ${dateStr}\n`;
+  chunks.push(...encoder.encode(billLine));
+
+  const custLine = `Customer: ${bill.customer_name || 'Walk-in'}`.slice(0, 28).padEnd(28) + `Time: ${timeStr}\n`;
+  chunks.push(...encoder.encode(custLine));
+
+  if (bill.customer_phone) {
+    const phoneLine = `Mobile: ${bill.customer_phone}`.padEnd(28) + `Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n`;
+    chunks.push(...encoder.encode(phoneLine));
+  }
+
+  chunks.push(...encoder.encode('------------------------------------------------\n'));
+  // 48-char standard columns: NO(3) + ITEM(21) + QTY(5) + PRICE(9) + AMOUNT(10) = 48
+  chunks.push(...encoder.encode('NO  ITEM                  QTY    PRICE    AMOUNT\n'));
+  chunks.push(...encoder.encode('------------------------------------------------\n'));
 
   // Items
-  for (const item of items) {
-    const printName = item.product_name_tamil && item.product_name_tamil.trim()
-      ? item.product_name_tamil.trim()
-      : item.product_name || 'Item';
-    const name = printName.slice(0, 13).padEnd(14);
-    const qty = String(item.quantity).padStart(3);
-    const rate = Number(item.price).toFixed(0).padStart(6);
-    const total = Number(item.total).toFixed(0).padStart(7);
-    chunks.push(...encoder.encode(`${name}${qty} ${rate} ${total}\n`));
-  }
+  items.forEach((item, index) => {
+    const printName =
+      item.product_name_tamil && item.product_name_tamil.trim()
+        ? item.product_name_tamil.trim()
+        : item.product_name || 'Item';
+    
+    const sNo = String(index + 1).padEnd(4);
+    const name = printName.slice(0, 20).padEnd(21);
+    const qty = String(item.quantity).padStart(4);
+    const price = Number(item.price).toFixed(2).padStart(9);
+    const total = Number(item.total).toFixed(2).padStart(10);
+    chunks.push(...encoder.encode(`${sNo}${name}${qty}${price}${total}\n`));
+  });
 
-  chunks.push(...encoder.encode('--------------------------------\n'));
-  chunks.push(...encoder.encode(`Subtotal:                    ${Number(bill.subtotal || 0).toFixed(2)}\n`));
+  chunks.push(...encoder.encode('------------------------------------------------\n'));
+
+  const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const countSummary = `Items: ${items.length}`.padEnd(24) + `Total Qty: ${totalQty}\n`;
+  chunks.push(...encoder.encode(countSummary));
+
+  const subtotalLine = 'Subtotal:'.padEnd(34) + `${Number(bill.subtotal || 0).toFixed(2).padStart(14)}\n`;
+  chunks.push(...encoder.encode(subtotalLine));
+
   if (Number(bill.discount) > 0) {
-    chunks.push(...encoder.encode(`Discount:                   -${Number(bill.discount).toFixed(2)}\n`));
+    const discLine = 'Discount:'.padEnd(34) + `-${Number(bill.discount).toFixed(2).padStart(13)}\n`;
+    chunks.push(...encoder.encode(discLine));
   }
   if (Number(bill.tax) > 0) {
-    chunks.push(...encoder.encode(`Tax:                        +${Number(bill.tax).toFixed(2)}\n`));
+    const taxLine = 'Tax / GST:'.padEnd(34) + `+${Number(bill.tax).toFixed(2).padStart(13)}\n`;
+    chunks.push(...encoder.encode(taxLine));
   }
-  chunks.push(...encoder.encode('--------------------------------\n'));
+  chunks.push(...encoder.encode('================================================\n'));
 
   // Bold Grand Total
   chunks.push(ESC, 0x45, 0x01); // Bold ON
@@ -178,12 +205,16 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   chunks.push(ESC, 0x21, 0x00); // Normal
   chunks.push(ESC, 0x45, 0x00); // Bold OFF
 
-  chunks.push(...encoder.encode(`Payment: ${bill.payment_method.toUpperCase()}\n`));
-  chunks.push(...encoder.encode('================================\n'));
+  chunks.push(...encoder.encode(`Payment Method: ${(bill.payment_method || 'CASH').toUpperCase()}\n`));
+  if (bill.payment_reference) {
+    chunks.push(...encoder.encode(`Ref / Note: ${bill.payment_reference}\n`));
+  }
+  chunks.push(...encoder.encode('================================================\n'));
 
   // Center alignment for footer
   chunks.push(ESC, 0x61, 0x01);
-  chunks.push(...encoder.encode(`${settings?.receipt_footer || 'THANK YOU! VISIT AGAIN.'}\n\n`));
+  chunks.push(...encoder.encode(`${settings?.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'}\n`));
+  chunks.push(...encoder.encode('*** QuickBill POS System ***\n\n'));
 
   // Paper feed & Cut (GS V 66 0)
   chunks.push(ESC, 0x64, 0x04); // Feed 4 lines
@@ -325,11 +356,14 @@ export function printReceiptElement(
   // Deep-clone with all computed styles inlined
   const styledClone = cloneWithInlineStyles(originalElement);
 
-  // Set full width on the root clone to utilize the entire paper width
-  styledClone.style.setProperty('width', '100%', 'important');
-  styledClone.style.setProperty('max-width', '100%', 'important');
-  styledClone.style.setProperty('margin', '0', 'important');
-  styledClone.style.setProperty('padding', '0', 'important');
+  const printWidthMm = paperWidth === '58mm' ? '54mm' : paperWidth === '100mm' ? '92mm' : '72mm';
+  const printMaxMm = paperWidth === '58mm' ? '58mm' : paperWidth === '100mm' ? '100mm' : '80mm';
+
+  // Set proper centering and width on the root clone for thermal roll
+  styledClone.style.setProperty('width', printWidthMm, 'important');
+  styledClone.style.setProperty('max-width', printMaxMm, 'important');
+  styledClone.style.setProperty('margin', '0 auto', 'important');
+  styledClone.style.setProperty('padding', '2mm 1.5mm', 'important');
   styledClone.style.setProperty('background', '#ffffff', 'important');
   styledClone.style.setProperty('color', '#000000', 'important');
   styledClone.style.setProperty('box-shadow', 'none', 'important');
@@ -360,10 +394,13 @@ export function printReceiptElement(
   doc.open();
   doc.write(`
     <!DOCTYPE html>
-    <html>
+    <html lang="ta">
       <head>
         <meta charset="utf-8" />
         <title>Receipt</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700;800&family=Mukta+Malar:wght@400;500;600;700;800&display=swap" rel="stylesheet">
         <style>
           @page {
             size: ${pageSize};
@@ -378,27 +415,32 @@ export function printReceiptElement(
             background: #ffffff !important;
             color: #000000 !important;
             width: 100% !important;
-            max-width: 100% !important;
             height: auto !important;
             min-height: 0 !important;
             overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Latha", "Mukta Malar", "Tamil Sangam MN" !important;
+            font-family: 'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', 'Latha', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+            -webkit-font-smoothing: antialiased;
           }
           #thermal-receipt-printable {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 1mm 1mm 2mm 1mm !important;
+            width: ${printWidthMm} !important;
+            max-width: ${printMaxMm} !important;
+            margin: 0 auto !important;
+            padding: 2mm 1.5mm !important;
             box-sizing: border-box !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: avoid !important;
             break-after: avoid !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
+            page-break-inside: avoid !important;
             break-inside: avoid !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
           }
-          /* Ensure all colors print as pure high-contrast black for thermal printers */
+          /* Ensure pure high-contrast black for thermal heads */
           body * {
             color: #000000 !important;
           }
@@ -406,9 +448,15 @@ export function printReceiptElement(
             width: 100% !important;
             border-collapse: collapse !important;
             table-layout: fixed !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
           }
           th, td {
             box-sizing: border-box !important;
+            vertical-align: top !important;
+          }
+          .font-mono {
+            font-family: 'JetBrains Mono', Consolas, Monaco, monospace !important;
           }
           .text-left { text-align: left !important; }
           .text-center { text-align: center !important; }
@@ -425,7 +473,7 @@ export function printReceiptElement(
   `);
   doc.close();
 
-  // Wait for the iframe content to fully render before triggering print
+  // Wait for the iframe fonts and content to fully render before triggering print
   setTimeout(() => {
     try {
       iframe.contentWindow?.focus();
@@ -439,6 +487,6 @@ export function printReceiptElement(
       if (printIframe) {
         printIframe.remove();
       }
-    }, 3000);
-  }, 300);
+    }, 4000);
+  }, 350);
 }

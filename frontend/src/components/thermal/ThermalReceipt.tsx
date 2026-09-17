@@ -18,7 +18,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const shopAddress = settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu';
   const shopPhone = settings.shop_phone || '+91 98765 43210';
   const shopGstin = settings.shop_gstin || '';
-  const footerMessage = settings.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.';
+  const footerMessage = settings.receipt_footer || 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.';
 
   // Format Date and Time
   const dateObj = bill.created_at ? new Date(bill.created_at) : new Date();
@@ -33,188 +33,365 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     hour12: true,
   });
 
-  const previewWidthClass =
+  // Calculate total items count and total quantity
+  const totalItemCount = items.length;
+  const totalQuantityCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+
+  // Sizing container for 80mm thermal paper (TVS RP 4200 standard printable area is ~72mm)
+  const containerWidthStyle =
     paperWidth === '58mm'
-      ? 'max-w-[58mm] w-full'
+      ? { width: '54mm', maxWidth: '58mm' }
       : paperWidth === '100mm'
-      ? 'max-w-[100mm] w-full'
-      : 'max-w-[80mm] w-full';
+      ? { width: '92mm', maxWidth: '100mm' }
+      : { width: '72mm', maxWidth: '80mm' };
 
   return (
     <div
       id="thermal-receipt-printable"
-      className={`bg-white text-black font-sans text-xs leading-normal p-2 sm:p-3 mx-auto select-text ${previewWidthClass}`}
-      style={{ boxSizing: 'border-box' }}
+      className="bg-white text-black mx-auto select-text leading-tight"
+      style={{
+        ...containerWidthStyle,
+        boxSizing: 'border-box',
+        padding: '2mm 1.5mm',
+        margin: '0 auto',
+        fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', 'Latha', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
+        fontSize: '11px',
+        color: '#000000',
+        backgroundColor: '#ffffff',
+      }}
     >
-      {/* Header Section */}
-      <div className="text-center pb-1 space-y-0.5">
-        <h2 className="text-base sm:text-lg font-black uppercase tracking-wider leading-tight">
+      {/* 1. STORE HEADER */}
+      <div className="text-center pb-1">
+        <h1
+          className="font-extrabold uppercase tracking-tight leading-tight"
+          style={{ fontSize: '15px', margin: '0 0 2px 0' }}
+        >
           {shopName}
-        </h2>
-        <p className="text-[11px] whitespace-pre-line font-medium leading-tight text-black">
-          {shopAddress}
-        </p>
-        <p className="text-[11px] font-semibold text-black">Ph: {shopPhone}</p>
+        </h1>
+        {shopAddress && (
+          <p
+            className="whitespace-pre-line font-medium leading-tight"
+            style={{ fontSize: '10.5px', margin: '1px 0' }}
+          >
+            {shopAddress}
+          </p>
+        )}
+        {shopPhone && (
+          <p className="font-semibold" style={{ fontSize: '10.5px', margin: '1px 0' }}>
+            Ph: {shopPhone}
+          </p>
+        )}
         {shopGstin && (
-          <p className="text-[10px] font-mono font-medium text-black">GSTIN: {shopGstin}</p>
+          <p
+            className="font-mono font-medium tracking-wide"
+            style={{ fontSize: '10px', margin: '1px 0' }}
+          >
+            GSTIN: {shopGstin}
+          </p>
         )}
       </div>
 
-      {/* Tax Invoice Banner */}
-      <div className="text-center font-bold tracking-widest text-[11px] my-1.5 py-0.5 border-t border-b border-black uppercase">
+      {/* 2. TAX INVOICE BANNER */}
+      <div
+        className="text-center font-bold tracking-widest uppercase my-1.5 py-0.5"
+        style={{
+          fontSize: '11px',
+          borderTop: '1.5px solid #000000',
+          borderBottom: '1.5px solid #000000',
+          letterSpacing: '2px',
+        }}
+      >
         TAX INVOICE
       </div>
 
-      {/* Bill Meta Info - Structured 2-Column Table */}
-      <table className="w-full text-[11px] font-mono border-collapse my-1" style={{ tableLayout: 'fixed' }}>
+      {/* 3. BILL DETAILS - 2-Column Structured Table */}
+      <table
+        className="w-full border-collapse my-1"
+        style={{ tableLayout: 'fixed', fontSize: '10.5px' }}
+      >
         <tbody>
           <tr>
-            <td className="text-left py-0.5" style={{ width: '60%' }}>
-              Bill No: <span className="font-extrabold text-black">{bill.bill_number}</span>
+            <td className="text-left py-0.5" style={{ width: '58%' }}>
+              <span>Bill No: </span>
+              <strong className="font-bold">{bill.bill_number}</strong>
             </td>
-            <td className="text-right py-0.5 font-sans" style={{ width: '40%' }}>
-              Date: <span className="font-medium">{dateStr}</span>
+            <td className="text-right py-0.5" style={{ width: '42%' }}>
+              <span>Date: </span>
+              <span className="font-medium">{dateStr}</span>
             </td>
           </tr>
           <tr>
-            <td className="text-left py-0.5 truncate" style={{ width: '60%' }}>
-              Customer: <span className="font-medium">{bill.customer_name || 'Walk-in'}</span>
+            <td
+              className="text-left py-0.5"
+              style={{
+                width: '58%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span>Customer: </span>
+              <span className="font-medium">{bill.customer_name || 'Walk-in'}</span>
             </td>
-            <td className="text-right py-0.5 font-sans" style={{ width: '40%' }}>
-              Time: <span className="font-medium">{timeStr}</span>
+            <td className="text-right py-0.5" style={{ width: '42%' }}>
+              <span>Time: </span>
+              <span className="font-medium">{timeStr}</span>
             </td>
           </tr>
           {bill.customer_phone && (
             <tr>
-              <td colSpan={2} className="text-left py-0.5">
-                Mobile: <span className="font-medium">{bill.customer_phone}</span>
+              <td className="text-left py-0.5" style={{ width: '58%' }}>
+                <span>Mobile: </span>
+                <span className="font-mono font-medium">{bill.customer_phone}</span>
+              </td>
+              <td className="text-right py-0.5" style={{ width: '42%' }}>
+                <span>Mode: </span>
+                <span className="font-bold uppercase">{bill.payment_method || 'CASH'}</span>
               </td>
             </tr>
           )}
         </tbody>
       </table>
 
-      {/* Divider */}
-      <div className="border-t border-dashed border-black my-1.5"></div>
+      {/* 4. ITEM TABLE (S.No | Item Name | Quantity | Price | Amount) */}
+      <div style={{ marginTop: '4px', marginBottom: '4px' }}>
+        <table
+          className="w-full border-collapse"
+          style={{
+            tableLayout: 'fixed',
+            fontSize: '10.5px',
+            borderTop: '1.5px solid #000000',
+            borderBottom: '1.5px solid #000000',
+          }}
+        >
+          <thead>
+            <tr style={{ borderBottom: '1px solid #000000' }}>
+              <th
+                className="text-center py-1 font-bold"
+                style={{ width: '8%', padding: '2px 1px' }}
+              >
+                எண்
+              </th>
+              <th
+                className="text-left py-1 font-bold"
+                style={{ width: '44%', padding: '2px 2px' }}
+              >
+                பொருள் (Item)
+              </th>
+              <th
+                className="text-center py-1 font-bold"
+                style={{ width: '14%', padding: '2px 1px' }}
+              >
+                அளவு
+              </th>
+              <th
+                className="text-right py-1 font-bold"
+                style={{ width: '16%', padding: '2px 1px' }}
+              >
+                விலை
+              </th>
+              <th
+                className="text-right py-1 font-bold"
+                style={{ width: '18%', padding: '2px 1px 2px 2px' }}
+              >
+                மொத்தம்
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => {
+              const primaryName =
+                item.product_name_tamil && item.product_name_tamil.trim()
+                  ? item.product_name_tamil.trim()
+                  : item.product_name || 'Item';
+              
+              const secondaryName =
+                item.product_name_tamil && item.product_name_tamil.trim() && item.product_name && item.product_name !== item.product_name_tamil
+                  ? item.product_name
+                  : null;
 
-      {/* Items Table - Fixed Width Columns with Explicit Separation */}
-      <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
-        <thead>
-          <tr className="border-b border-black text-[11px] font-bold">
-            <th className="py-1 text-left" style={{ width: '38%', paddingRight: '4px' }}>
-              பொருள்
-            </th>
-            <th className="py-1 text-center" style={{ width: '16%', paddingLeft: '2px', paddingRight: '2px' }}>
-              அளவு
-            </th>
-            <th className="py-1 text-right" style={{ width: '22%', paddingRight: '8px' }}>
-              விலை
-            </th>
-            <th className="py-1 text-right" style={{ width: '24%', paddingLeft: '4px' }}>
-              மொத்தம்
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => {
-            const printName =
-              item.product_name_tamil && item.product_name_tamil.trim()
-                ? item.product_name_tamil.trim()
-                : item.product_name;
+              return (
+                <tr
+                  key={index}
+                  style={{
+                    borderBottom:
+                      index === items.length - 1 ? 'none' : '1px dashed #d1d5db',
+                  }}
+                >
+                  {/* S.No */}
+                  <td
+                    className="text-center align-top font-mono font-medium"
+                    style={{ width: '8%', padding: '3px 1px' }}
+                  >
+                    {index + 1}
+                  </td>
 
-            return (
-              <tr key={index} className="border-b border-dotted border-neutral-300">
-                <td className="py-1 text-left align-top leading-tight" style={{ paddingRight: '4px' }}>
-                  <span className="font-bold text-black block text-[12px]">
-                    {printName}
-                  </span>
-                  {item.unit && item.unit !== 'pcs' && (
-                    <span className="text-[10px] text-neutral-700 block">
-                      ({item.unit})
+                  {/* Item Name (Tamil primary, English / Unit subtitle) */}
+                  <td
+                    className="text-left align-top leading-tight"
+                    style={{
+                      width: '44%',
+                      padding: '3px 2px',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                    }}
+                  >
+                    <span
+                      className="font-bold text-black block"
+                      style={{
+                        fontSize: '11px',
+                        lineHeight: '1.25',
+                        fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', sans-serif",
+                      }}
+                    >
+                      {primaryName}
                     </span>
-                  )}
-                </td>
-                <td
-                  className="py-1 text-center font-mono font-medium align-top text-[11px]"
-                  style={{ paddingLeft: '2px', paddingRight: '2px' }}
-                >
-                  {item.quantity}
-                </td>
-                <td
-                  className="py-1 text-right font-mono align-top text-[11px]"
-                  style={{ paddingRight: '8px' }}
-                >
-                  {Number(item.price).toFixed(2)}
-                </td>
-                <td
-                  className="py-1 text-right font-mono font-bold align-top text-[11px]"
-                  style={{ paddingLeft: '4px' }}
-                >
-                  {Number(item.total).toFixed(2)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    {secondaryName && (
+                      <span
+                        className="text-neutral-700 block font-normal"
+                        style={{ fontSize: '9.5px', lineHeight: '1.15' }}
+                      >
+                        {secondaryName}
+                      </span>
+                    )}
+                    {item.unit && item.unit !== 'pcs' && (
+                      <span
+                        className="text-neutral-600 block"
+                        style={{ fontSize: '9px' }}
+                      >
+                        ({item.unit})
+                      </span>
+                    )}
+                  </td>
 
-      {/* Divider */}
-      <div className="border-t border-dashed border-black my-1.5"></div>
+                  {/* Quantity */}
+                  <td
+                    className="text-center align-top font-mono font-semibold"
+                    style={{ width: '14%', padding: '3px 1px', fontSize: '10.5px' }}
+                  >
+                    {item.quantity}
+                  </td>
 
-      {/* Calculations & Totals */}
-      <div className="text-[11px] space-y-0.5 font-mono">
-        <div className="flex justify-between items-center py-0.5">
-          <span>கூட்டுத்தொகை (Subtotal):</span>
-          <span className="font-bold">{Number(bill.subtotal || 0).toFixed(2)}</span>
+                  {/* Price */}
+                  <td
+                    className="text-right align-top font-mono"
+                    style={{ width: '16%', padding: '3px 1px', fontSize: '10.5px' }}
+                  >
+                    {Number(item.price).toFixed(2)}
+                  </td>
+
+                  {/* Amount */}
+                  <td
+                    className="text-right align-top font-mono font-bold"
+                    style={{ width: '18%', padding: '3px 1px 3px 2px', fontSize: '10.5px' }}
+                  >
+                    {Number(item.total).toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 5. TOTALS AND PAYMENT SECTION */}
+      <div className="space-y-0.5" style={{ fontSize: '10.5px' }}>
+        {/* Total Items & Qty count summary */}
+        <div
+          className="flex justify-between items-center py-0.5 font-medium text-neutral-800"
+          style={{ fontSize: '10px' }}
+        >
+          <span>மொத்த பொருட்கள் (Items): {totalItemCount}</span>
+          <span>மொத்த எண்ணிக்கை (Qty): {totalQuantityCount}</span>
         </div>
 
+        {/* Subtotal */}
+        <div className="flex justify-between items-center py-0.5">
+          <span>கூட்டுத்தொகை (Subtotal):</span>
+          <span className="font-mono font-bold">
+            ₹{Number(bill.subtotal || 0).toFixed(2)}
+          </span>
+        </div>
+
+        {/* Discount */}
         {Number(bill.discount || 0) > 0 && (
-          <div className="flex justify-between items-center py-0.5 text-neutral-800">
+          <div className="flex justify-between items-center py-0.5 text-neutral-900">
             <span>
-              தள்ளுபடி (Discount){' '}
-              {bill.discount_type === 'percentage' ? `(${bill.discount}%)` : ''}:
+              தள்ளுபடி (Discount)
+              {bill.discount_type === 'percentage' ? ` (${bill.discount}%)` : ''}:
             </span>
-            <span className="font-bold">- {Number(bill.discount).toFixed(2)}</span>
+            <span className="font-mono font-bold">
+              - ₹{Number(bill.discount).toFixed(2)}
+            </span>
           </div>
         )}
 
+        {/* Tax / GST */}
         {Number(bill.tax || 0) > 0 && (
-          <div className="flex justify-between items-center py-0.5 text-neutral-800">
+          <div className="flex justify-between items-center py-0.5 text-neutral-900">
             <span>
-              வரி (Tax) {bill.tax_percentage ? `(${bill.tax_percentage}%)` : ''}:
+              வரி / GST {bill.tax_percentage ? `(${bill.tax_percentage}%)` : ''}:
             </span>
-            <span className="font-bold">+ {Number(bill.tax).toFixed(2)}</span>
+            <span className="font-mono font-bold">
+              + ₹{Number(bill.tax).toFixed(2)}
+            </span>
           </div>
         )}
 
-        {/* Grand Total Bar */}
-        <div className="border-t-2 border-b-2 border-black my-1.5 py-1 flex justify-between items-center">
-          <span className="font-black text-xs uppercase tracking-wide">
+        {/* GRAND TOTAL BAR */}
+        <div
+          className="flex justify-between items-center my-1.5 py-1"
+          style={{
+            borderTop: '2px solid #000000',
+            borderBottom: '2px solid #000000',
+          }}
+        >
+          <span
+            className="font-extrabold uppercase tracking-wide"
+            style={{ fontSize: '12px' }}
+          >
             மொத்தம் (TOTAL)
           </span>
-          <span className="font-mono text-sm sm:text-base font-black">
+          <span
+            className="font-mono font-black"
+            style={{ fontSize: '14px' }}
+          >
             ₹{Number(bill.grand_total || 0).toFixed(2)}
           </span>
         </div>
 
         {/* Payment Details */}
-        <div className="flex justify-between items-center py-0.5 text-[11px] font-sans">
+        <div className="flex justify-between items-center py-0.5">
           <span>பணம் செலுத்திய முறை:</span>
-          <span className="uppercase font-bold">{bill.payment_method || 'CASH'}</span>
+          <span className="font-bold uppercase font-mono">
+            {bill.payment_method || 'CASH'}
+          </span>
         </div>
+
         {bill.payment_reference && (
-          <div className="flex justify-between items-center py-0.5 text-[10px] text-neutral-700 font-sans">
+          <div
+            className="flex justify-between items-center py-0.5 text-neutral-800"
+            style={{ fontSize: '10px' }}
+          >
             <span>Ref / Note:</span>
-            <span className="font-mono">{bill.payment_reference}</span>
+            <span className="font-mono font-medium">{bill.payment_reference}</span>
           </div>
         )}
       </div>
 
-      {/* Footer message */}
-      <div className="text-center pt-2 pb-1 mt-2 text-[11px] font-bold whitespace-pre-line border-t border-dashed border-black space-y-0.5">
-        <p>{footerMessage}</p>
-        <p className="text-[9px] text-neutral-600 font-mono font-normal">
-          *** Software: QuickBill POS System ***
+      {/* 6. FOOTER */}
+      <div
+        className="text-center pt-2 pb-1 mt-2 border-t border-dashed border-black space-y-1"
+        style={{ fontSize: '10.5px' }}
+      >
+        <p className="font-bold whitespace-pre-line leading-tight">
+          {footerMessage}
+        </p>
+        <p
+          className="font-mono text-neutral-700 tracking-wide"
+          style={{ fontSize: '9px', marginTop: '3px' }}
+        >
+          *** QuickBill POS System ***
         </p>
       </div>
     </div>

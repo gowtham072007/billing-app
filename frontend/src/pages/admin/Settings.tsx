@@ -62,9 +62,9 @@ export const Settings: React.FC = () => {
   };
 
   const sampleItems: BillItem[] = [
-    { product_id: 1, product_name: 'Rice Ponni 5kg', sku: 'RICE005', unit: 'Bag', quantity: 1, price: 290, total: 290 },
-    { product_id: 2, product_name: 'Sugar 1kg', sku: 'SUGR001', unit: 'kg', quantity: 2, price: 50, total: 100 },
-    { product_id: 3, product_name: 'Refined Cooking Oil 1L', sku: 'OIL001', unit: 'L', quantity: 1, price: 150, total: 150 },
+    { product_id: 1, product_name: 'Rice Ponni 5kg', product_name_tamil: 'பொன்னி அரிசி 5kg', sku: 'RICE005', unit: 'Bag', quantity: 1, price: 290, total: 290 },
+    { product_id: 2, product_name: 'Sugar 1kg', product_name_tamil: 'சர்க்கரை 1kg', sku: 'SUGR001', unit: 'kg', quantity: 2, price: 50, total: 100 },
+    { product_id: 3, product_name: 'Refined Cooking Oil 1L', product_name_tamil: 'சமையல் எண்ணெய் 1L', sku: 'OIL001', unit: 'L', quantity: 1, price: 150, total: 150 },
   ];
 
   return (
