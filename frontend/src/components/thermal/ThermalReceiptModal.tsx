@@ -126,20 +126,20 @@ Customer: ${(bill.customer_name || 'Walk-in').slice(0, 22).padEnd(22)} Time: ${(
   return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
 })()}
 ${bill.customer_phone ? `Mobile: ${bill.customer_phone.padEnd(24)} Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n` : ''}------------------------------------------------
-NO  ITEM                  QTY    PRICE    AMOUNT
+NO  ITEM                 QTY     PRICE     AMOUNT
 ------------------------------------------------
 ${items
   .map(
     (item, index) =>
       `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
-        .slice(0, 20)
-        .padEnd(21)}${String(item.quantity).padStart(4)}${Number(item.price)
+        .slice(0, 18)
+        .padEnd(19)}${Number(item.quantity || 0).toFixed(3).padStart(7)}${Number(item.price)
         .toFixed(2)
-        .padStart(9)}${Number(item.total).toFixed(2).padStart(10)}`
+        .padStart(8)}${Number(item.total).toFixed(2).padStart(10)}`
   )
   .join('\n')}
 ------------------------------------------------
-Items: ${String(items.length).padEnd(19)} Total Qty: ${totalQty}
+Items: ${String(items.length).padEnd(17)} Total Qty: ${totalQty.toFixed(3)}
 ${Number(bill.discount || 0) > 0 ? `Discount:                       -₹${Number(bill.discount).toFixed(2).padStart(10)}\n` : ''}${Number(bill.tax || 0) > 0 ? `Tax / GST:                      +₹${Number(bill.tax).toFixed(2).padStart(10)}\n` : ''}================================================
 TOTAL:                           ₹${Number(bill.grand_total || 0).toFixed(2).padStart(10)}
 ${bill.payment_reference ? `Ref / Note: ${bill.payment_reference}\n` : ''}================================================

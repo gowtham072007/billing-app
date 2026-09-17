@@ -267,12 +267,12 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     )}
                   </td>
 
-                  {/* Quantity */}
+                  {/* Quantity (Formatted with 3 decimal points) */}
                   <td
                     className="text-center align-top font-mono font-semibold"
                     style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
-                    {item.quantity % 1 === 0 ? item.quantity : Number(item.quantity.toFixed(3))}
+                    {Number(item.quantity || 0).toFixed(3)}
                   </td>
 
                   {/* Price */}
@@ -305,7 +305,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           style={{ fontSize: '10px' }}
         >
           <span>மொத்த பொருட்கள் (Items): {totalItemCount}</span>
-          <span>மொத்த எண்ணிக்கை (Qty): {totalQuantityCount}</span>
+          <span>மொத்த எண்ணிக்கை (Qty): {totalQuantityCount.toFixed(3)}</span>
         </div>
 
         {/* Discount (if applicable) */}
