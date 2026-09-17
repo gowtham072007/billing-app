@@ -212,10 +212,30 @@ export const Billing: React.FC = () => {
     });
   };
 
-  // Barcode / SKU Scan Handler with POS Sound feedback & non-blocking toast
+  // Barcode / SKU Scan Handler with POS Sound feedback, multiplier parsing (e.g. 5*SUGR or SUGR*5) & non-blocking toast
   const handleBarcodeScan = async (code: string): Promise<boolean> => {
     if (!code || !code.trim()) return false;
-    const cleanCode = code.trim().toUpperCase();
+
+    let rawCode = code.trim();
+    let qtyMultiplier = 1;
+
+    // Support typing quantity multiplier directly e.g. "5*SUGR001" or "2.5*RICE" or "SUGR001*3"
+    if (rawCode.includes('*')) {
+      const parts = rawCode.split('*');
+      if (parts.length === 2) {
+        const p0 = parseFloat(parts[0]);
+        const p1 = parseFloat(parts[1]);
+        if (!isNaN(p0) && p0 > 0 && isNaN(p1)) {
+          qtyMultiplier = Math.round(p0 * 1000) / 1000;
+          rawCode = parts[1].trim();
+        } else if (isNaN(p0) && !isNaN(p1) && p1 > 0) {
+          qtyMultiplier = Math.round(p1 * 1000) / 1000;
+          rawCode = parts[0].trim();
+        }
+      }
+    }
+
+    const cleanCode = rawCode.toUpperCase();
     const cleanNumeric = cleanCode.replace(/^0+/, '');
 
     // 1. Check local product cache
@@ -238,8 +258,8 @@ export const Billing: React.FC = () => {
         return false;
       }
       posSounds.playBeepSuccess();
-      handleAddProduct(localMatch, 1);
-      setBarcodeToast({ text: `✓ Added: ${localMatch.name}` });
+      handleAddProduct(localMatch, qtyMultiplier);
+      setBarcodeToast({ text: `✓ Added (${qtyMultiplier} ${localMatch.unit}): ${localMatch.name}` });
       setTimeout(() => setBarcodeToast(null), 2500);
       return true;
     }
@@ -255,8 +275,8 @@ export const Billing: React.FC = () => {
           return false;
         }
         posSounds.playBeepSuccess();
-        handleAddProduct(res.product, 1);
-        setBarcodeToast({ text: `✓ Added: ${res.product.name}` });
+        handleAddProduct(res.product, qtyMultiplier);
+        setBarcodeToast({ text: `✓ Added (${qtyMultiplier} ${res.product.unit}): ${res.product.name}` });
         setTimeout(() => setBarcodeToast(null), 2500);
         return true;
       }
@@ -434,6 +454,17 @@ export const Billing: React.FC = () => {
       if (e.key === 'F4') {
         e.preventDefault();
         setIsCustomerModalOpen(true);
+      }
+
+      // F7 or Alt+Q: Focus QTY Input on Last Added Item
+      if (e.key === 'F7' || (e.altKey && e.key.toLowerCase() === 'q')) {
+        e.preventDefault();
+        const qtyInputs = document.querySelectorAll<HTMLInputElement>('input[data-qty-input="true"]');
+        if (qtyInputs.length > 0) {
+          const lastQtyInput = qtyInputs[qtyInputs.length - 1];
+          lastQtyInput.focus();
+          lastQtyInput.select();
+        }
       }
 
       // F8: Complete Bill

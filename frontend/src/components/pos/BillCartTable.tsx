@@ -109,10 +109,39 @@ const QtyControlCell: React.FC<{
     setIsPresetsOpen(false);
   };
 
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+      // Instantly focus barcode scanner input for continuous barcode scanning
+      const barcodeInput = document.getElementById('pos-barcode-input') as HTMLInputElement | null;
+      if (barcodeInput) {
+        barcodeInput.focus();
+        barcodeInput.select();
+      }
+    } else if (e.key === 'Escape') {
+      setLocalVal(formatQtyNumber(item.quantity));
+      e.currentTarget.blur();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const step = getStepIncrement(item.unit, e.shiftKey);
+      const newQty = Math.round((item.quantity + step) * 1000) / 1000;
+      onUpdateQuantity(item.product_id, newQty);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const step = getStepIncrement(item.unit, e.shiftKey);
+      const newQty = Math.max(0, Math.round((item.quantity - step) * 1000) / 1000);
+      onUpdateQuantity(item.product_id, newQty);
+    }
+  };
+
   return (
     <div className="relative inline-flex items-center gap-1">
       {/* Stepper Input Container */}
-      <div className="flex items-center bg-slate-100/90 rounded-lg p-0.5 border border-slate-200/90 shadow-2xs">
+      <div className="flex items-center bg-slate-100/90 rounded-lg p-0.5 border border-slate-200/90 shadow-2xs hover:border-brand-400 focus-within:border-brand-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/20 transition-all">
         <button
           type="button"
           onClick={e => handleStep('down', e)}
@@ -128,9 +157,13 @@ const QtyControlCell: React.FC<{
           min={isDecimal ? '0.01' : '1'}
           max={item.available_stock}
           value={localVal}
+          data-qty-input="true"
+          onFocus={handleFocus}
           onChange={handleInputChange}
           onBlur={handleInputBlur}
-          className="w-12 text-center text-xs font-bold font-mono bg-transparent outline-none p-0 text-slate-900 selection:bg-brand-500 selection:text-white"
+          onKeyDown={handleKeyDown}
+          title="Type quantity (e.g. 0.5, 1.5, 5). Press Enter to confirm."
+          className="w-12 text-center text-xs font-bold font-mono bg-transparent outline-none p-0 text-slate-900 selection:bg-brand-500 selection:text-white cursor-text"
         />
 
         <button

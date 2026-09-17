@@ -12,6 +12,8 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
     { key: 'Alt + 1..0', label: 'Switch Bill Section (1 - 10)', desc: 'Instantly jump between 10 concurrent customer bill workspaces' },
     { key: 'USB Gun', label: 'Hardware Barcode Gun', desc: 'Scan any item anytime from anywhere on screen without clicking!' },
     { key: 'F2', label: 'Focus Barcode / SKU Scanner', desc: 'Instantly focuses the scanner input field for manual typing' },
+    { key: '5*SKU', label: 'Quantity Multiplier', desc: 'Type quantity prefix or suffix in scanner (e.g. 5*SKU or 2.5*SKU) to add multiple items at once' },
+    { key: 'F7 / Alt+Q', label: 'Type Quantity on Item', desc: 'Instantly focuses & selects the quantity field of the last item in cart for quick typing' },
     { key: 'F3', label: 'Open Live Camera Scanner', desc: 'Opens phone/webcam camera to scan barcodes' },
     { key: 'F4', label: 'Select / Add Customer', desc: 'Opens the customer lookup & quick-create modal' },
     { key: 'F8', label: 'Complete Bill', desc: 'Saves the current section bill and decrements stock' },
