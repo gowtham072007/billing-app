@@ -52,6 +52,19 @@ export const Navbar: React.FC = () => {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-6">
+          {isAuthenticated && (
+            <NavLink
+              to="/customer/dashboard"
+              className={({ isActive }) =>
+                `text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                  isActive ? 'text-brand-600' : 'text-slate-600 hover:text-slate-900'
+                }`
+              }
+            >
+              <span>{t('dashboard') || 'Dashboard'}</span>
+            </NavLink>
+          )}
+
           <NavLink
             to="/customer/products"
             className={({ isActive }) =>
@@ -153,6 +166,15 @@ export const Navbar: React.FC = () => {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-5 space-y-3">
+          {isAuthenticated && (
+            <Link
+              to="/customer/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block py-2 text-sm font-semibold text-slate-800 hover:text-brand-600"
+            >
+              {t('dashboard') || 'Dashboard'}
+            </Link>
+          )}
           <Link
             to="/customer/products"
             onClick={() => setMobileMenuOpen(false)}

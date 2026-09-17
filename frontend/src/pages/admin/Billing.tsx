@@ -291,10 +291,12 @@ export const Billing: React.FC = () => {
             setTimeout(() => setBarcodeToast(null), 3500);
             return item;
           }
+          const cleanQty = Math.round(qty * 1000) / 1000;
+          const cleanTotal = Math.round(cleanQty * item.price * 100) / 100;
           return {
             ...item,
-            quantity: qty,
-            total: qty * item.price,
+            quantity: cleanQty,
+            total: cleanTotal,
           };
         }
         return item;

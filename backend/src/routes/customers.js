@@ -39,6 +39,142 @@ router.get('/', authenticateToken, requireAdmin, (req, res, next) => {
   }
 });
 
+// GET /api/customers/me/dashboard (Logged-in Customer Dashboard)
+router.get('/me/dashboard', authenticateToken, (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const userPhone = req.user.phone;
+
+    // Find customer record by user_id or phone
+    let customer = db.prepare('SELECT * FROM customers WHERE user_id = ?').get(userId);
+    if (!customer && userPhone) {
+      customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(userPhone);
+      if (customer && !customer.user_id) {
+        db.prepare('UPDATE customers SET user_id = ? WHERE id = ?').run(userId, customer.id);
+      }
+    }
+
+    if (!customer) {
+      // Auto-create customer entry if user registered but customer record not created yet
+      const ins = db.prepare(`
+        INSERT INTO customers (user_id, name, phone, email)
+        VALUES (?, ?, ?, ?)
+      `).run(userId, req.user.name, req.user.phone, req.user.email || null);
+      customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(ins.lastInsertRowid);
+    }
+
+    const customerId = customer.id;
+
+    // 1. Calculate Customer Stats
+    const statsQuery = db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM orders WHERE customer_id = ?) as total_orders,
+        (SELECT COUNT(*) FROM orders WHERE customer_id = ? AND status IN ('pending', 'accepted', 'preparing', 'ready')) as active_orders,
+        (SELECT COUNT(*) FROM orders WHERE customer_id = ? AND status = 'completed') as completed_orders,
+        (SELECT COUNT(*) FROM bills WHERE customer_id = ?) as total_bills,
+        (SELECT COALESCE(SUM(grand_total), 0) FROM bills WHERE customer_id = ?) as total_spent
+    `).get(customerId, customerId, customerId, customerId, customerId);
+
+    // 2. Recent Orders (with items count & summary)
+    const recentOrders = db.prepare(`
+      SELECT 
+        o.id, o.order_number, o.total_amount, o.status, o.created_at, o.notes,
+        (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as item_count,
+        (SELECT GROUP_CONCAT(COALESCE(NULLIF(oi.product_name_tamil, ''), oi.product_name) || ' (' || oi.quantity || ' ' || oi.unit || ')', ', ')
+         FROM order_items oi WHERE oi.order_id = o.id) as items_summary
+      FROM orders o
+      WHERE o.customer_id = ?
+      ORDER BY o.created_at DESC
+      LIMIT 5
+    `).all(customerId);
+
+    // 3. Recent Bills / Invoices (with items count & summary)
+    const recentBills = db.prepare(`
+      SELECT 
+        b.id, b.bill_number, b.grand_total, b.subtotal, b.discount, b.tax, b.payment_method, b.created_at,
+        (SELECT COUNT(*) FROM bill_items WHERE bill_id = b.id) as item_count,
+        (SELECT GROUP_CONCAT(COALESCE(NULLIF(bi.product_name_tamil, ''), bi.product_name) || ' (' || bi.quantity || ' ' || bi.unit || ')', ', ')
+         FROM bill_items bi WHERE bi.bill_id = b.id) as items_summary
+      FROM bills b
+      WHERE b.customer_id = ?
+      ORDER BY b.created_at DESC
+      LIMIT 5
+    `).all(customerId);
+
+    // 4. Frequently Purchased or Featured Products for Quick Re-Order
+    const popularProducts = db.prepare(`
+      SELECT 
+        p.id, p.name, p.name_tamil, p.category, p.sku, p.selling_price, p.stock, p.unit, p.image,
+        COALESCE(
+          (SELECT SUM(oi.quantity) FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.customer_id = ?),
+          0
+        ) as times_ordered
+      FROM products p
+      WHERE p.status = 'active'
+      ORDER BY times_ordered DESC, p.stock DESC
+      LIMIT 6
+    `).all(customerId);
+
+    res.json({
+      customer,
+      stats: {
+        total_orders: statsQuery.total_orders || 0,
+        active_orders: statsQuery.active_orders || 0,
+        completed_orders: statsQuery.completed_orders || 0,
+        total_bills: statsQuery.total_bills || 0,
+        total_spent: statsQuery.total_spent || 0,
+      },
+      recent_orders: recentOrders,
+      recent_bills: recentBills,
+      popular_products: popularProducts,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/customers/me/profile (Customer update own profile & address)
+router.put('/me/profile', authenticateToken, (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { name, address, email } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Name is required.' });
+    }
+
+    const cleanName = name.trim();
+    const cleanAddress = address ? address.trim() : null;
+    const cleanEmail = email ? email.trim().toLowerCase() : null;
+
+    // Update users table
+    db.prepare(`
+      UPDATE users SET
+        name = ?,
+        email = COALESCE(?, email)
+      WHERE id = ?
+    `).run(cleanName, cleanEmail, userId);
+
+    // Update customers table
+    db.prepare(`
+      UPDATE customers SET
+        name = ?,
+        address = ?,
+        email = COALESCE(?, email)
+      WHERE user_id = ?
+    `).run(cleanName, cleanAddress, cleanEmail, userId);
+
+    const updated = db.prepare('SELECT * FROM customers WHERE user_id = ?').get(userId);
+
+    res.json({
+      message: 'Profile updated successfully.',
+      customer: updated,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/customers/:id (Admin or Owner)
 router.get('/:id', authenticateToken, (req, res, next) => {
   try {

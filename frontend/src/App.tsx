@@ -18,6 +18,7 @@ import { Reports } from './pages/admin/Reports';
 import { Settings } from './pages/admin/Settings';
 
 // Customer Pages
+import { CustomerDashboard } from './pages/customer/CustomerDashboard';
 import { CustomerCatalog } from './pages/customer/CustomerCatalog';
 import { CartPage } from './pages/customer/CartPage';
 import { MyOrders } from './pages/customer/MyOrders';
@@ -56,7 +57,7 @@ const AdminLayout: React.FC = () => {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/customer/products" replace />;
+    return <Navigate to="/customer/dashboard" replace />;
   }
 
   return (
@@ -132,7 +133,8 @@ export const App: React.FC = () => {
 
       {/* Customer Shop Routes */}
       <Route path="/customer" element={<CustomerLayout />}>
-        <Route index element={<Navigate to="/customer/products" replace />} />
+        <Route index element={<Navigate to="/customer/dashboard" replace />} />
+        <Route path="dashboard" element={<CustomerDashboard />} />
         <Route path="products" element={<CustomerCatalog />} />
         <Route path="cart" element={<CartPage />} />
         <Route path="orders" element={<MyOrders />} />

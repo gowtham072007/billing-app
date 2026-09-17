@@ -201,30 +201,43 @@ export const CartPage: React.FC = () => {
                 </div>
 
                 {/* Stepper & Total */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1 border border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-200">
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => {
+                        const step = item.product.unit && ['kg', 'l', 'litre', 'liter'].includes(item.product.unit.toLowerCase()) ? 0.5 : 1;
+                        const newQ = Math.max(0, Math.round((item.quantity - step) * 1000) / 1000);
+                        updateQuantity(item.product.id, newQ);
+                      }}
                       className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
+                      title="Decrease quantity"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
-                    <span className="w-6 text-center font-bold text-xs font-mono">{item.quantity}</span>
+                    <span className="min-w-10 text-center font-bold text-xs font-mono px-1">
+                      {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2).replace(/\.00$/, '')}
+                    </span>
                     <button
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => {
+                        const step = item.product.unit && ['kg', 'l', 'litre', 'liter'].includes(item.product.unit.toLowerCase()) ? 0.5 : 1;
+                        const newQ = Math.round((item.quantity + step) * 1000) / 1000;
+                        updateQuantity(item.product.id, newQ);
+                      }}
                       className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
+                      title="Increase quantity"
                     >
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
 
-                  <span className="font-mono font-bold text-slate-900 text-sm w-16 text-right">
-                    ₹{(item.product.selling_price * item.quantity).toFixed(0)}
+                  <span className="font-mono font-bold text-slate-900 text-sm w-20 text-right">
+                    ₹{(item.product.selling_price * item.quantity).toFixed(2).replace(/\.00$/, '')}
                   </span>
 
                   <button
                     onClick={() => removeFromCart(item.product.id)}
                     className="p-1.5 text-slate-300 hover:text-rose-600 rounded transition-colors"
+                    title="Remove item"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

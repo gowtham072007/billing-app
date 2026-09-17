@@ -26,6 +26,7 @@ export const translations = {
     actions: 'Actions',
 
     // Navigation & Roles
+    dashboard: 'Dashboard',
     nav_dashboard: 'Dashboard',
     nav_billing: 'POS Billing',
     nav_products: 'Product Catalog',
@@ -180,6 +181,7 @@ export const translations = {
     actions: 'செயல்கள்',
 
     // Navigation & Roles
+    dashboard: 'டாஷ்போர்டு',
     nav_dashboard: 'டாஷ்போர்டு',
     nav_billing: 'பில்லிங் (POS)',
     nav_products: 'பொருட்கள் பட்டியல்',

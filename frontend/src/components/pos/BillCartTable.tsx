@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Trash2,
   Plus,
@@ -15,8 +15,18 @@ import {
   Receipt,
   QrCode,
   Tag,
+  ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { Customer, BillItem, ShopSettings, Product } from '../../types';
+import {
+  isDecimalUnit,
+  getQtyPresets,
+  getStepIncrement,
+  formatQtyNumber,
+  formatQtyWithUnit,
+  parseQtyInput,
+} from '../../utils/qtyHelper';
 
 export interface PosBillItem {
   product_id: number;
@@ -32,6 +42,154 @@ export interface PosBillItem {
   total: number;
   available_stock: number;
 }
+
+// Sub-component for individual item quantity editing & presets
+const QtyControlCell: React.FC<{
+  item: PosBillItem;
+  onUpdateQuantity: (productId: number, qty: number) => void;
+}> = ({ item, onUpdateQuantity }) => {
+  const [isPresetsOpen, setIsPresetsOpen] = useState(false);
+  const [localVal, setLocalVal] = useState<string>(formatQtyNumber(item.quantity));
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Sync with item.quantity if changed externally
+  useEffect(() => {
+    setLocalVal(formatQtyNumber(item.quantity));
+  }, [item.quantity]);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setIsPresetsOpen(false);
+      }
+    };
+    if (isPresetsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isPresetsOpen]);
+
+  const presets = getQtyPresets(item.unit);
+  const isDecimal = isDecimalUnit(item.unit);
+
+  const handleStep = (direction: 'up' | 'down', e: React.MouseEvent) => {
+    const step = getStepIncrement(item.unit, e.shiftKey);
+    const newQty = direction === 'up' ? item.quantity + step : item.quantity - step;
+    const safeQty = Math.max(0, Math.round(newQty * 1000) / 1000);
+    onUpdateQuantity(item.product_id, safeQty);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalVal(val);
+    const parsed = parseFloat(val);
+    if (!isNaN(parsed) && parsed > 0) {
+      onUpdateQuantity(item.product_id, Math.round(parsed * 1000) / 1000);
+    }
+  };
+
+  const handleInputBlur = () => {
+    const parsed = parseFloat(localVal);
+    if (isNaN(parsed) || parsed <= 0) {
+      setLocalVal(formatQtyNumber(item.quantity));
+      onUpdateQuantity(item.product_id, item.quantity);
+    } else {
+      const rounded = Math.round(parsed * 1000) / 1000;
+      setLocalVal(formatQtyNumber(rounded));
+      onUpdateQuantity(item.product_id, rounded);
+    }
+  };
+
+  const handleSelectPreset = (presetVal: number) => {
+    onUpdateQuantity(item.product_id, presetVal);
+    setLocalVal(formatQtyNumber(presetVal));
+    setIsPresetsOpen(false);
+  };
+
+  return (
+    <div className="relative inline-flex items-center gap-1">
+      {/* Stepper Input Container */}
+      <div className="flex items-center bg-slate-100/90 rounded-lg p-0.5 border border-slate-200/90 shadow-2xs">
+        <button
+          type="button"
+          onClick={e => handleStep('down', e)}
+          title={`Decrease by ${getStepIncrement(item.unit)} (Hold Shift for fine step)`}
+          className="w-5 h-5 rounded bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-2xs transition-colors shrink-0"
+        >
+          <Minus className="w-3 h-3" />
+        </button>
+
+        <input
+          type="number"
+          step="any"
+          min={isDecimal ? '0.01' : '1'}
+          max={item.available_stock}
+          value={localVal}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          className="w-12 text-center text-xs font-bold font-mono bg-transparent outline-none p-0 text-slate-900 selection:bg-brand-500 selection:text-white"
+        />
+
+        <button
+          type="button"
+          onClick={e => handleStep('up', e)}
+          title={`Increase by ${getStepIncrement(item.unit)} (Hold Shift for fine step)`}
+          className="w-5 h-5 rounded bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-2xs transition-colors shrink-0"
+        >
+          <Plus className="w-3 h-3" />
+        </button>
+      </div>
+
+      {/* Quick Preset Selector Pill */}
+      <div className="relative" ref={popoverRef}>
+        <button
+          type="button"
+          onClick={() => setIsPresetsOpen(prev => !prev)}
+          className={`h-6 px-1.5 rounded-md text-[10px] font-bold font-mono flex items-center gap-0.5 transition-colors border ${
+            isPresetsOpen
+              ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          title={`Quick Qty Presets for ${item.unit}`}
+        >
+          <span>{item.unit}</span>
+          <ChevronDown className={`w-2.5 h-2.5 transition-transform ${isPresetsOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Dropdown Menu for Presets */}
+        {isPresetsOpen && (
+          <div className="absolute left-0 top-full mt-1 z-50 w-44 bg-white rounded-xl shadow-xl border border-slate-200 p-2 animate-in fade-in zoom-in-95 duration-100">
+            <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
+              <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-brand-500" />
+                <span>Quick QTY ({item.unit})</span>
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {presets.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectPreset(p.value)}
+                  className={`text-left px-2 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-between ${
+                    Math.abs(item.quantity - p.value) < 0.001
+                      ? 'bg-brand-50 text-brand-700 font-bold border border-brand-200'
+                      : 'hover:bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <span className="text-[11px] truncate">{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface BillCartTableProps {
   items: PosBillItem[];
@@ -227,40 +385,17 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Quantity Stepper */}
-                  <td className="py-2.5">
-                    <div className="flex items-center justify-center gap-1 bg-slate-100 rounded-lg p-0.5 max-w-[90px] mx-auto border border-slate-200/80">
-                      <button
-                        onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
-                        className="w-5 h-5 rounded bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-xs transition-colors"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        max={item.available_stock}
-                        value={item.quantity}
-                        onChange={e =>
-                          onUpdateQuantity(item.product_id, parseInt(e.target.value, 10) || 1)
-                        }
-                        className="w-8 text-center text-xs font-bold font-mono bg-transparent outline-none p-0"
-                      />
-                      <button
-                        onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
-                        className="w-5 h-5 rounded bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-xs transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
+                  {/* Quantity Stepper & Quick Presets */}
+                  <td className="py-2.5 text-center">
+                    <QtyControlCell item={item} onUpdateQuantity={onUpdateQuantity} />
                   </td>
 
                   <td className="py-2.5 text-right font-mono font-bold text-slate-700">
-                    ₹{item.price}
+                    ₹{item.price.toFixed(2).replace(/\.00$/, '')}
                   </td>
 
                   <td className="py-2.5 text-right pr-2 font-mono font-black text-slate-900">
-                    ₹{item.total}
+                    ₹{item.total.toFixed(2).replace(/\.00$/, '')}
                   </td>
 
                   <td className="py-2.5 pr-1 text-center">

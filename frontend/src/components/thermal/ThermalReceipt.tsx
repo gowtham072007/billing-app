@@ -272,23 +272,23 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     className="text-center align-top font-mono font-semibold"
                     style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
-                    {item.quantity}
+                    {item.quantity % 1 === 0 ? item.quantity : Number(item.quantity.toFixed(3))}
                   </td>
 
                   {/* Price */}
                   <td
                     className="text-right align-top font-mono"
-                    style={{ width: '16%', padding: '3px 2px', fontSize: '10.5px' }}
+                    style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
-                    {Number(item.price).toFixed(2)}
+                    {Number(item.price).toFixed(2).replace(/\.00$/, '')}
                   </td>
 
-                  {/* Amount */}
+                  {/* Total */}
                   <td
                     className="text-right align-top font-mono font-bold"
-                    style={{ width: '17%', padding: '3px 2px', fontSize: '10.5px' }}
+                    style={{ width: '18%', padding: '3px 2px', fontSize: '11px' }}
                   >
-                    {Number(item.total).toFixed(2)}
+                    {Number(item.total).toFixed(2).replace(/\.00$/, '')}
                   </td>
                 </tr>
               );
