@@ -140,13 +140,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           </tr>
           {bill.customer_phone && (
             <tr>
-              <td className="text-left py-0.5" style={{ width: '58%' }}>
+              <td colSpan={2} className="text-left py-0.5">
                 <span>Mobile: </span>
                 <span className="font-mono font-medium">{bill.customer_phone}</span>
-              </td>
-              <td className="text-right py-0.5" style={{ width: '42%' }}>
-                <span>Mode: </span>
-                <span className="font-bold uppercase">{bill.payment_method || 'CASH'}</span>
               </td>
             </tr>
           )}
@@ -168,31 +164,31 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             <tr style={{ borderBottom: '1px solid #000000' }}>
               <th
                 className="text-center py-1 font-bold"
-                style={{ width: '8%', padding: '2px 1px' }}
+                style={{ width: '9%', padding: '2px 1px' }}
               >
                 எண்
               </th>
               <th
                 className="text-left py-1 font-bold"
-                style={{ width: '44%', padding: '2px 2px' }}
+                style={{ width: '43%', padding: '2px 4px' }}
               >
-                பொருள் (Item)
+                பொருள்
               </th>
               <th
                 className="text-center py-1 font-bold"
-                style={{ width: '14%', padding: '2px 1px' }}
+                style={{ width: '15%', padding: '2px 2px' }}
               >
                 அளவு
               </th>
               <th
                 className="text-right py-1 font-bold"
-                style={{ width: '16%', padding: '2px 1px' }}
+                style={{ width: '16%', padding: '2px 2px' }}
               >
                 விலை
               </th>
               <th
                 className="text-right py-1 font-bold"
-                style={{ width: '18%', padding: '2px 1px 2px 2px' }}
+                style={{ width: '17%', padding: '2px 2px' }}
               >
                 மொத்தம்
               </th>
@@ -221,7 +217,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                   {/* S.No */}
                   <td
                     className="text-center align-top font-mono font-medium"
-                    style={{ width: '8%', padding: '3px 1px' }}
+                    style={{ width: '9%', padding: '3px 1px' }}
                   >
                     {index + 1}
                   </td>
@@ -230,8 +226,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                   <td
                     className="text-left align-top leading-tight"
                     style={{
-                      width: '44%',
-                      padding: '3px 2px',
+                      width: '43%',
+                      padding: '3px 4px',
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
                     }}
@@ -267,7 +263,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                   {/* Quantity */}
                   <td
                     className="text-center align-top font-mono font-semibold"
-                    style={{ width: '14%', padding: '3px 1px', fontSize: '10.5px' }}
+                    style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
                     {item.quantity}
                   </td>
@@ -275,7 +271,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                   {/* Price */}
                   <td
                     className="text-right align-top font-mono"
-                    style={{ width: '16%', padding: '3px 1px', fontSize: '10.5px' }}
+                    style={{ width: '16%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
                     {Number(item.price).toFixed(2)}
                   </td>
@@ -283,7 +279,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                   {/* Amount */}
                   <td
                     className="text-right align-top font-mono font-bold"
-                    style={{ width: '18%', padding: '3px 1px 3px 2px', fontSize: '10.5px' }}
+                    style={{ width: '17%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
                     {Number(item.total).toFixed(2)}
                   </td>
@@ -294,7 +290,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         </table>
       </div>
 
-      {/* 5. TOTALS AND PAYMENT SECTION */}
+      {/* 5. TOTALS SECTION */}
       <div className="space-y-0.5" style={{ fontSize: '10.5px' }}>
         {/* Total Items & Qty count summary */}
         <div
@@ -305,15 +301,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           <span>மொத்த எண்ணிக்கை (Qty): {totalQuantityCount}</span>
         </div>
 
-        {/* Subtotal */}
-        <div className="flex justify-between items-center py-0.5">
-          <span>Subtotal:</span>
-          <span className="font-mono font-bold">
-            ₹{Number(bill.subtotal || 0).toFixed(2)}
-          </span>
-        </div>
-
-        {/* Discount */}
+        {/* Discount (if applicable) */}
         {Number(bill.discount || 0) > 0 && (
           <div className="flex justify-between items-center py-0.5 text-neutral-900">
             <span>
@@ -326,7 +314,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           </div>
         )}
 
-        {/* Tax / GST */}
+        {/* Tax / GST (if applicable) */}
         {Number(bill.tax || 0) > 0 && (
           <div className="flex justify-between items-center py-0.5 text-neutral-900">
             <span>
@@ -357,14 +345,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
             style={{ fontSize: '14px' }}
           >
             ₹{Number(bill.grand_total || 0).toFixed(2)}
-          </span>
-        </div>
-
-        {/* Payment Details */}
-        <div className="flex justify-between items-center py-0.5">
-          <span>பணம் செலுத்திய முறை:</span>
-          <span className="font-bold uppercase font-mono">
-            {bill.payment_method || 'CASH'}
           </span>
         </div>
 

@@ -155,7 +155,7 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   chunks.push(...encoder.encode(custLine));
 
   if (bill.customer_phone) {
-    const phoneLine = `Mobile: ${bill.customer_phone}`.padEnd(28) + `Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n`;
+    const phoneLine = `Mobile: ${bill.customer_phone}\n`;
     chunks.push(...encoder.encode(phoneLine));
   }
 
@@ -185,9 +185,6 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   const countSummary = `Items: ${items.length}`.padEnd(24) + `Total Qty: ${totalQty}\n`;
   chunks.push(...encoder.encode(countSummary));
 
-  const subtotalLine = 'Subtotal:'.padEnd(34) + `${Number(bill.subtotal || 0).toFixed(2).padStart(14)}\n`;
-  chunks.push(...encoder.encode(subtotalLine));
-
   if (Number(bill.discount) > 0) {
     const discLine = 'Discount:'.padEnd(34) + `-${Number(bill.discount).toFixed(2).padStart(13)}\n`;
     chunks.push(...encoder.encode(discLine));
@@ -205,7 +202,6 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   chunks.push(ESC, 0x21, 0x00); // Normal
   chunks.push(ESC, 0x45, 0x00); // Bold OFF
 
-  chunks.push(...encoder.encode(`Payment Method: ${(bill.payment_method || 'CASH').toUpperCase()}\n`));
   if (bill.payment_reference) {
     chunks.push(...encoder.encode(`Ref / Note: ${bill.payment_reference}\n`));
   }

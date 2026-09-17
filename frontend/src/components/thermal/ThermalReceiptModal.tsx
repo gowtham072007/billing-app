@@ -117,10 +117,8 @@ ${items
   .join('\n')}
 ------------------------------------------------
 Items: ${String(items.length).padEnd(19)} Total Qty: ${totalQty}
-Subtotal:                        ₹${Number(bill.subtotal || 0).toFixed(2).padStart(10)}
 ${Number(bill.discount || 0) > 0 ? `Discount:                       -₹${Number(bill.discount).toFixed(2).padStart(10)}\n` : ''}${Number(bill.tax || 0) > 0 ? `Tax / GST:                      +₹${Number(bill.tax).toFixed(2).padStart(10)}\n` : ''}================================================
 TOTAL:                           ₹${Number(bill.grand_total || 0).toFixed(2).padStart(10)}
-Payment Method: ${(bill.payment_method || 'CASH').toUpperCase()}
 ${bill.payment_reference ? `Ref / Note: ${bill.payment_reference}\n` : ''}================================================
 ${settings?.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'}
 *** QuickBill POS System ***
