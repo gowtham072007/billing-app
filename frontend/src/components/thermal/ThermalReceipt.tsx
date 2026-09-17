@@ -14,7 +14,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   settings = {},
   paperWidth = '80mm',
 }) => {
-  const shopName = settings.shop_name || 'Vilmani Store';
+  const shopName = settings.shop_name || 'வில்மணி ஸ்டோர்';
   const shopAddress = settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu';
   const shopPhone = settings.shop_phone || '+91 98765 43210';
   const shopGstin = settings.shop_gstin || '';
@@ -54,8 +54,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
     paperWidth === '58mm'
       ? { width: '54mm', maxWidth: '58mm' }
       : paperWidth === '100mm'
-      ? { width: '92mm', maxWidth: '100mm' }
-      : { width: '72mm', maxWidth: '80mm' };
+        ? { width: '92mm', maxWidth: '100mm' }
+        : { width: '72mm', maxWidth: '80mm' };
 
   return (
     <div
@@ -212,7 +212,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                 item.product_name_tamil && item.product_name_tamil.trim()
                   ? item.product_name_tamil.trim()
                   : item.product_name || 'Item';
-              
+
               const secondaryName =
                 item.product_name_tamil && item.product_name_tamil.trim() && item.product_name && item.product_name !== item.product_name_tamil
                   ? item.product_name
