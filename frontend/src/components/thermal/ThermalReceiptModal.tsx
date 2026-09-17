@@ -100,8 +100,32 @@ ${settings?.shop_gstin ? `GSTIN: ${settings.shop_gstin}` : ''}
 ================================================
 TAX INVOICE
 ------------------------------------------------
-Bill No: ${bill.bill_number.padEnd(23)} Date: ${new Date(bill.created_at).toLocaleDateString('en-IN')}
-Customer: ${(bill.customer_name || 'Walk-in').slice(0, 22).padEnd(22)} Time: ${new Date(bill.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+Bill No: ${bill.bill_number.padEnd(23)} Date: ${(() => {
+  const parseDateToIST = (input?: string | Date | null): Date => {
+    if (!input) return new Date();
+    if (input instanceof Date) return input;
+    const str = String(input).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
+      return new Date(str.replace(' ', 'T') + 'Z');
+    }
+    return new Date(str);
+  };
+  const d = parseDateToIST(bill.created_at);
+  return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' });
+})()}
+Customer: ${(bill.customer_name || 'Walk-in').slice(0, 22).padEnd(22)} Time: ${(() => {
+  const parseDateToIST = (input?: string | Date | null): Date => {
+    if (!input) return new Date();
+    if (input instanceof Date) return input;
+    const str = String(input).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
+      return new Date(str.replace(' ', 'T') + 'Z');
+    }
+    return new Date(str);
+  };
+  const d = parseDateToIST(bill.created_at);
+  return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
+})()}
 ${bill.customer_phone ? `Mobile: ${bill.customer_phone.padEnd(24)} Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n` : ''}------------------------------------------------
 NO  ITEM                  QTY    PRICE    AMOUNT
 ------------------------------------------------

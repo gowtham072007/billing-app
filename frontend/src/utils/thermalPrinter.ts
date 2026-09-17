@@ -145,8 +145,18 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
 
   // Left align for bill metadata
   chunks.push(ESC, 0x61, 0x00);
-  const dateStr = new Date(bill.created_at).toLocaleDateString('en-IN');
-  const timeStr = new Date(bill.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const parseDateToIST = (input?: string | Date | null): Date => {
+    if (!input) return new Date();
+    if (input instanceof Date) return input;
+    const str = String(input).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
+      return new Date(str.replace(' ', 'T') + 'Z');
+    }
+    return new Date(str);
+  };
+  const dateObj = parseDateToIST(bill.created_at);
+  const dateStr = dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = dateObj.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
   
   const billLine = `Bill No: ${bill.bill_number}`.padEnd(28) + `Date: ${dateStr}\n`;
   chunks.push(...encoder.encode(billLine));

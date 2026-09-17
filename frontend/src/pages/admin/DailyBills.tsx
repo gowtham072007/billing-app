@@ -230,18 +230,28 @@ export const DailyBills: React.FC = () => {
 
                     <td className="py-3 px-4 text-slate-500 font-mono">
                       <div>
-                        {new Date(b.created_at).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {(() => {
+                          const str = String(b.created_at || '').trim();
+                          const utc = !str.endsWith('Z') && !str.includes('+') && str.includes(':') ? str.replace(' ', 'T') + 'Z' : str;
+                          return new Date(utc).toLocaleDateString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          });
+                        })()}
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        {new Date(b.created_at).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true,
-                        })}
+                        {(() => {
+                          const str = String(b.created_at || '').trim();
+                          const utc = !str.endsWith('Z') && !str.includes('+') && str.includes(':') ? str.replace(' ', 'T') + 'Z' : str;
+                          return new Date(utc).toLocaleTimeString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
+                        })()}
                       </div>
                     </td>
 

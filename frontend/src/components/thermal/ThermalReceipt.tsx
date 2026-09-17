@@ -20,14 +20,26 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const shopGstin = settings.shop_gstin || '';
   const footerMessage = settings.receipt_footer || 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.';
 
-  // Format Date and Time
-  const dateObj = bill.created_at ? new Date(bill.created_at) : new Date();
+  // Format Date and Time in Indian Standard Time (IST - Asia/Kolkata)
+  const parseDateToIST = (input?: string | Date | null): Date => {
+    if (!input) return new Date();
+    if (input instanceof Date) return input;
+    const str = String(input).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
+      return new Date(str.replace(' ', 'T') + 'Z');
+    }
+    return new Date(str);
+  };
+
+  const dateObj = parseDateToIST(bill.created_at);
   const dateStr = dateObj.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
   const timeStr = dateObj.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
