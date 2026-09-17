@@ -258,14 +258,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                         {secondaryName}
                       </span>
                     )}
-                    {item.unit && item.unit !== 'pcs' && (
-                      <span
-                        className="text-neutral-600 block"
-                        style={{ fontSize: '9px' }}
-                      >
-                        ({item.unit})
-                      </span>
-                    )}
                   </td>
 
                   {/* Quantity & Product Unit Measure */}
