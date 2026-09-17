@@ -154,6 +154,15 @@ export function formatPrintBillQty(quantity: number, unit?: string): string {
 }
 
 /**
+ * Formats quantity with product unit for bill receipts e.g. "1 pcs", "0.500 kg", "1.250 L"
+ */
+export function formatPrintBillQtyWithUnit(quantity: number, unit?: string): string {
+  const qtyStr = formatPrintBillQty(quantity, unit);
+  const u = (unit || 'pcs').trim();
+  return `${qtyStr} ${u}`;
+}
+
+/**
  * Safely parses string or number input into a clean positive number
  */
 export function parseQtyInput(input: string | number, fallback = 1): number {

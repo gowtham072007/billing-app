@@ -183,8 +183,8 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
         : item.product_name || 'Item';
     
     const sNo = String(index + 1).padEnd(4);
-    const name = printName.slice(0, 18).padEnd(19);
-    const qty = formatPrintBillQty(item.quantity, item.unit).padStart(7);
+    const name = printName.slice(0, 16).padEnd(17);
+    const qty = `${formatPrintBillQty(item.quantity, item.unit)} ${item.unit || 'pcs'}`.padStart(9);
     const price = Number(item.price).toFixed(2).padStart(8);
     const total = Number(item.total).toFixed(2).padStart(10);
     chunks.push(...encoder.encode(`${sNo}${name}${qty}${price}${total}\n`));

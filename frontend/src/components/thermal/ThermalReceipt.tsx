@@ -268,12 +268,20 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     )}
                   </td>
 
-                  {/* Quantity (Pieces as Integer, Weighed/Decimal as 3 Decimal Points) */}
+                  {/* Quantity & Product Unit Measure */}
                   <td
-                    className="text-center align-top font-mono font-semibold"
-                    style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
+                    className="text-center align-top font-mono leading-tight"
+                    style={{ width: '16%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
-                    {formatPrintBillQty(item.quantity, item.unit)}
+                    <span className="font-bold block">
+                      {formatPrintBillQty(item.quantity, item.unit)}
+                    </span>
+                    <span
+                      className="text-neutral-900 font-sans font-bold block uppercase"
+                      style={{ fontSize: '9px', lineHeight: '1', marginTop: '1.5px' }}
+                    >
+                      {item.unit || 'pcs'}
+                    </span>
                   </td>
 
                   {/* Price */}

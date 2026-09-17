@@ -127,14 +127,14 @@ Customer: ${(bill.customer_name || 'Walk-in').slice(0, 22).padEnd(22)} Time: ${(
   return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
 })()}
 ${bill.customer_phone ? `Mobile: ${bill.customer_phone.padEnd(24)} Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n` : ''}------------------------------------------------
-NO  ITEM                 QTY     PRICE     AMOUNT
+NO  ITEM                 QTY       PRICE     AMOUNT
 ------------------------------------------------
 ${items
   .map(
     (item, index) =>
       `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
-        .slice(0, 18)
-        .padEnd(19)}${formatPrintBillQty(item.quantity, item.unit).padStart(7)}${Number(item.price)
+        .slice(0, 16)
+        .padEnd(17)}${`${formatPrintBillQty(item.quantity, item.unit)} ${item.unit || 'pcs'}`.padStart(9)}${Number(item.price)
         .toFixed(2)
         .padStart(8)}${Number(item.total).toFixed(2).padStart(10)}`
   )
