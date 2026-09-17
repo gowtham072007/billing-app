@@ -1,5 +1,6 @@
 // WebUSB & WebSerial Direct ESC/POS Thermal Printer Connection Utility
 import { Bill, BillItem, ShopSettings } from '../types';
+import { formatPrintBillQty } from './qtyHelper';
 
 export interface ConnectedPrinter {
   type: 'usb' | 'serial' | 'system';
@@ -183,7 +184,7 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
     
     const sNo = String(index + 1).padEnd(4);
     const name = printName.slice(0, 18).padEnd(19);
-    const qty = Number(item.quantity || 0).toFixed(3).padStart(7);
+    const qty = formatPrintBillQty(item.quantity, item.unit).padStart(7);
     const price = Number(item.price).toFixed(2).padStart(8);
     const total = Number(item.total).toFixed(2).padStart(10);
     chunks.push(...encoder.encode(`${sNo}${name}${qty}${price}${total}\n`));
@@ -192,7 +193,8 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   chunks.push(...encoder.encode('------------------------------------------------\n'));
 
   const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-  const countSummary = `Items: ${items.length}`.padEnd(20) + `Total Qty: ${totalQty.toFixed(3)}\n`;
+  const formattedTotalQty = totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3);
+  const countSummary = `Items: ${items.length}`.padEnd(20) + `Total Qty: ${formattedTotalQty}\n`;
   chunks.push(...encoder.encode(countSummary));
 
   if (Number(bill.discount) > 0) {

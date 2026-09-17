@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bill, BillItem, ShopSettings } from '../../types';
+import { formatPrintBillQty } from '../../utils/qtyHelper';
 
 interface ThermalReceiptProps {
   bill: Bill;
@@ -267,12 +268,12 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     )}
                   </td>
 
-                  {/* Quantity (Formatted with 3 decimal points) */}
+                  {/* Quantity (Pieces as Integer, Weighed/Decimal as 3 Decimal Points) */}
                   <td
                     className="text-center align-top font-mono font-semibold"
                     style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
-                    {Number(item.quantity || 0).toFixed(3)}
+                    {formatPrintBillQty(item.quantity, item.unit)}
                   </td>
 
                   {/* Price */}
@@ -305,7 +306,12 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           style={{ fontSize: '10px' }}
         >
           <span>மொத்த பொருட்கள் (Items): {totalItemCount}</span>
-          <span>மொத்த எண்ணிக்கை (Qty): {totalQuantityCount.toFixed(3)}</span>
+          <span>
+            மொத்த எண்ணிக்கை (Qty):{' '}
+            {totalQuantityCount % 1 === 0
+              ? totalQuantityCount.toFixed(0)
+              : totalQuantityCount.toFixed(3)}
+          </span>
         </div>
 
         {/* Discount (if applicable) */}

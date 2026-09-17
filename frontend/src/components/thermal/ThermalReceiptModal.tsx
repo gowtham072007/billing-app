@@ -11,6 +11,7 @@ import {
   getSavedPrinterName,
   savePrinterName,
 } from '../../utils/thermalPrinter';
+import { formatPrintBillQty } from '../../utils/qtyHelper';
 
 interface ThermalReceiptModalProps {
   isOpen: boolean;
@@ -133,13 +134,13 @@ ${items
     (item, index) =>
       `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
         .slice(0, 18)
-        .padEnd(19)}${Number(item.quantity || 0).toFixed(3).padStart(7)}${Number(item.price)
+        .padEnd(19)}${formatPrintBillQty(item.quantity, item.unit).padStart(7)}${Number(item.price)
         .toFixed(2)
         .padStart(8)}${Number(item.total).toFixed(2).padStart(10)}`
   )
   .join('\n')}
 ------------------------------------------------
-Items: ${String(items.length).padEnd(17)} Total Qty: ${totalQty.toFixed(3)}
+Items: ${String(items.length).padEnd(17)} Total Qty: ${totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}
 ${Number(bill.discount || 0) > 0 ? `Discount:                       -₹${Number(bill.discount).toFixed(2).padStart(10)}\n` : ''}${Number(bill.tax || 0) > 0 ? `Tax / GST:                      +₹${Number(bill.tax).toFixed(2).padStart(10)}\n` : ''}================================================
 TOTAL:                           ₹${Number(bill.grand_total || 0).toFixed(2).padStart(10)}
 ${bill.payment_reference ? `Ref / Note: ${bill.payment_reference}\n` : ''}================================================

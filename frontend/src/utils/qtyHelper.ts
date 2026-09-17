@@ -138,6 +138,22 @@ export function formatQtyWithUnit(quantity: number, unit?: string): string {
 }
 
 /**
+ * Formats quantity specifically for printed bills:
+ * - Piece-based / discrete count units (pcs, piece, box, packet, nos, etc.) print as an INTEGER (e.g. 1, 2, 5, 12).
+ * - Weight / volume / length units (kg, g, L, ml, meter, etc.) or fractional amounts print with 3 decimal points (e.g. 0.500, 1.250, 0.250).
+ */
+export function formatPrintBillQty(quantity: number, unit?: string): string {
+  const q = typeof quantity === 'number' && !isNaN(quantity) ? quantity : 0;
+  const isDec = isDecimalUnit(unit);
+
+  if (isDec || q % 1 !== 0) {
+    return q.toFixed(3);
+  }
+
+  return String(Math.round(q));
+}
+
+/**
  * Safely parses string or number input into a clean positive number
  */
 export function parseQtyInput(input: string | number, fallback = 1): number {
