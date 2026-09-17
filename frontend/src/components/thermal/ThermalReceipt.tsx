@@ -12,7 +12,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   bill,
   items,
   settings = {},
-  paperWidth = '80mm',
+  paperWidth = '100mm',
 }) => {
   const shopName = settings.shop_name || 'வில்மணி ஸ்டோர்';
   const shopAddress = settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu';
@@ -49,13 +49,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const totalItemCount = items.length;
   const totalQuantityCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
-  // Sizing container for 80mm thermal paper (TVS RP 4200 standard printable area is ~72mm)
-  const containerWidthStyle =
-    paperWidth === '58mm'
-      ? { width: '54mm', maxWidth: '58mm' }
-      : paperWidth === '100mm'
-        ? { width: '92mm', maxWidth: '100mm' }
-        : { width: '72mm', maxWidth: '80mm' };
+  // 4-inch Thermal Paper Layout (100mm roll, ~96mm printable width)
+  const containerWidthStyle = { width: '96mm', maxWidth: '100mm' };
 
   return (
     <div
@@ -64,10 +59,10 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
       style={{
         ...containerWidthStyle,
         boxSizing: 'border-box',
-        padding: '2mm 1.5mm',
+        padding: '2.5mm 2mm',
         margin: '0 auto',
         fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', 'Latha', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
-        fontSize: '11px',
+        fontSize: '11.5px',
         color: '#000000',
         backgroundColor: '#ffffff',
       }}

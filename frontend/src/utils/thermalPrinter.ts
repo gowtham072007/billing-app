@@ -11,7 +11,7 @@ export interface ConnectedPrinter {
 let activeUsbDevice: any = null;
 let activeSerialPort: any = null;
 
-export const DEFAULT_PRINTER_NAME = 'TVS Electronics RP Series / POS-80';
+export const DEFAULT_PRINTER_NAME = '4-Inch POS Thermal Printer';
 
 export function getSavedPrinterName(): string {
   try {
@@ -345,7 +345,7 @@ function inlineComputedStyles(source: HTMLElement, clone: HTMLElement): void {
  */
 export function printReceiptElement(
   elementId: string = 'thermal-receipt-printable',
-  paperWidth: '58mm' | '80mm' | '100mm' | string = '80mm'
+  paperWidth: string = '100mm'
 ): void {
   const originalElement = document.getElementById(elementId);
   if (!originalElement) {
@@ -362,14 +362,14 @@ export function printReceiptElement(
   // Deep-clone with all computed styles inlined
   const styledClone = cloneWithInlineStyles(originalElement);
 
-  const printWidthMm = paperWidth === '58mm' ? '54mm' : paperWidth === '100mm' ? '92mm' : '72mm';
-  const printMaxMm = paperWidth === '58mm' ? '58mm' : paperWidth === '100mm' ? '100mm' : '80mm';
+  const printWidthMm = '96mm';
+  const printMaxMm = '100mm';
 
-  // Set proper centering and width on the root clone for thermal roll
+  // Set proper centering and width on the root clone for 4-inch thermal roll
   styledClone.style.setProperty('width', printWidthMm, 'important');
   styledClone.style.setProperty('max-width', printMaxMm, 'important');
   styledClone.style.setProperty('margin', '0 auto', 'important');
-  styledClone.style.setProperty('padding', '2mm 1.5mm', 'important');
+  styledClone.style.setProperty('padding', '2.5mm 2mm', 'important');
   styledClone.style.setProperty('background', '#ffffff', 'important');
   styledClone.style.setProperty('color', '#000000', 'important');
   styledClone.style.setProperty('box-shadow', 'none', 'important');
@@ -395,7 +395,7 @@ export function printReceiptElement(
     return;
   }
 
-  const pageSize = paperWidth === '58mm' ? '58mm auto' : paperWidth === '100mm' ? '100mm auto' : '80mm auto';
+  const pageSize = '100mm auto';
 
   doc.open();
   doc.write(`
@@ -433,7 +433,7 @@ export function printReceiptElement(
             width: ${printWidthMm} !important;
             max-width: ${printMaxMm} !important;
             margin: 0 auto !important;
-            padding: 2mm 1.5mm !important;
+            padding: 2.5mm 2mm !important;
             box-sizing: border-box !important;
             border: none !important;
             box-shadow: none !important;

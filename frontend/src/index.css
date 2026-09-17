@@ -77,13 +77,13 @@
 }
 
 /* ========================================================================= */
-/* EXACT THERMAL RECEIPT ROLL PRINT MEDIA ENGINE (80MM / 3-INCH & 58MM)     */
-/* Direct fallback for window.print() or Ctrl+P on Windows 11 / TVS RP 4200  */
+/* EXACT 4-INCH (100MM) THERMAL RECEIPT ROLL PRINT MEDIA ENGINE            */
+/* Direct fallback for window.print() or Ctrl+P on Windows 11               */
 /* ========================================================================= */
 @media print {
   @page {
     margin: 0mm !important;
-    size: 80mm auto;
+    size: 100mm auto;
   }
 
   /* Reset body and html for zero margins and height */
@@ -119,13 +119,13 @@
   #thermal-receipt-printable {
     display: block !important;
     position: static !important;
-    width: 72mm !important;
-    max-width: 80mm !important;
-    min-width: 70mm !important;
+    width: 96mm !important;
+    max-width: 100mm !important;
+    min-width: 90mm !important;
     margin: 0 auto !important;
-    padding: 2mm 1.5mm !important;
+    padding: 2.5mm 2mm !important;
     background-color: #ffffff !important;
-    font-size: 11px !important;
+    font-size: 11.5px !important;
     line-height: 1.25 !important;
     box-shadow: none !important;
     border: none !important;

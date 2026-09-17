@@ -33,12 +33,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   const [editNameInput, setEditNameInput] = useState(connectedDeviceName);
   const [isDirectPrinting, setIsDirectPrinting] = useState(false);
   const [showDirectGuide, setShowDirectGuide] = useState(false);
-  const [paperWidth, setPaperWidth] = useState<'58mm' | '80mm' | '100mm'>('80mm');
 
   if (!bill) return null;
 
   const handleBrowserPrint = () => {
-    printReceiptElement('thermal-receipt-printable', paperWidth);
+    printReceiptElement('thermal-receipt-printable', '100mm');
   };
 
   const handleSavePrinterName = () => {
@@ -79,11 +78,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         alert('✅ Receipt sent directly to thermal printer!');
       } else {
         // Fallback to iframe-based print if no USB/Serial device claimed yet
-        printReceiptElement('thermal-receipt-printable', paperWidth);
+        printReceiptElement('thermal-receipt-printable', '100mm');
       }
     } catch (err: any) {
       alert('Error printing directly: ' + err.message);
-      printReceiptElement('thermal-receipt-printable', paperWidth);
+      printReceiptElement('thermal-receipt-printable', '100mm');
     } finally {
       setIsDirectPrinting(false);
     }
@@ -257,7 +256,7 @@ ${settings?.receipt_footer || 'நன்றி! மீண்டும் வர�
               </p>
               <ul className="list-disc pl-5 space-y-1 font-mono text-[10.5px] text-slate-700">
                 <li>Change <strong>Destination</strong>: Select <strong>{connectedDeviceName}</strong> instead of <em>"Save as PDF"</em>.</li>
-                <li>Set <strong>Paper size</strong>: <em>80mm / 4-inch Roll</em>.</li>
+                <li>Set <strong>Paper size</strong>: <em>4-inch / 100mm Roll</em>.</li>
                 <li>Set <strong>Margins</strong>: <em>None</em>.</li>
                 <li>Uncheck <strong>Headers and Footers</strong>.</li>
               </ul>
@@ -268,31 +267,10 @@ ${settings?.receipt_footer || 'நன்றி! மீண்டும் வர�
           )}
         </div>
 
-        {/* Paper Roll Size Selector */}
-        <div className="flex items-center justify-between px-1 print:hidden">
-          <span className="text-xs font-bold text-slate-700">Receipt Roll Size:</span>
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            {(['58mm', '80mm', '100mm'] as const).map(w => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => setPaperWidth(w)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                  paperWidth === w
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {w === '80mm' ? '80mm (3-inch / TVS)' : w === '58mm' ? '58mm (2-inch)' : '100mm (4-inch)'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Receipt Visual Paper Mockup */}
-        <div className="bg-slate-100 p-3.5 rounded-xl flex justify-center overflow-x-auto shadow-inner max-h-72 print:bg-transparent print:p-0 print:m-0 print:max-h-none print:shadow-none print:overflow-visible">
+        {/* 4-Inch Thermal Paper Visual Mockup */}
+        <div className="bg-slate-100 p-3.5 rounded-xl flex justify-center overflow-x-auto shadow-inner max-h-80 print:bg-transparent print:p-0 print:m-0 print:max-h-none print:shadow-none print:overflow-visible">
           <div className="bg-white p-3 shadow-md rounded-sm border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
-            <ThermalReceipt bill={bill} items={items} settings={settings} paperWidth={paperWidth} />
+            <ThermalReceipt bill={bill} items={items} settings={settings} paperWidth="100mm" />
           </div>
         </div>
 
