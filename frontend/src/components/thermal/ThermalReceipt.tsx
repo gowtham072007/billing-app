@@ -307,7 +307,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
         {/* Subtotal */}
         <div className="flex justify-between items-center py-0.5">
-          <span>கூட்டுத்தொகை (Subtotal):</span>
+          <span>Subtotal:</span>
           <span className="font-mono font-bold">
             ₹{Number(bill.subtotal || 0).toFixed(2)}
           </span>
