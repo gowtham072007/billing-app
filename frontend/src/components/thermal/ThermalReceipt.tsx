@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bill, BillItem, ShopSettings } from '../../types';
-import { formatPrintBillQty } from '../../utils/qtyHelper';
+import { formatPrintBillQty, getTamilUnit } from '../../utils/qtyHelper';
 
 interface ThermalReceiptProps {
   bill: Bill;
@@ -260,7 +260,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     )}
                   </td>
 
-                  {/* Quantity & Product Unit Measure */}
+                  {/* Quantity & Product Unit Measure (Tamil) */}
                   <td
                     className="text-center align-top font-mono leading-tight"
                     style={{ width: '16%', padding: '3px 2px', fontSize: '10.5px' }}
@@ -269,10 +269,15 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                       {formatPrintBillQty(item.quantity, item.unit)}
                     </span>
                     <span
-                      className="text-neutral-900 font-sans font-bold block uppercase"
-                      style={{ fontSize: '9px', lineHeight: '1', marginTop: '1.5px' }}
+                      className="text-neutral-900 font-bold block"
+                      style={{
+                        fontSize: '9px',
+                        lineHeight: '1.2',
+                        marginTop: '1.5px',
+                        fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', sans-serif",
+                      }}
                     >
-                      {item.unit || 'pcs'}
+                      {getTamilUnit(item.unit)}
                     </span>
                   </td>
 

@@ -11,7 +11,7 @@ import {
   getSavedPrinterName,
   savePrinterName,
 } from '../../utils/thermalPrinter';
-import { formatPrintBillQty } from '../../utils/qtyHelper';
+import { formatPrintBillQty, getTamilUnit } from '../../utils/qtyHelper';
 
 interface ThermalReceiptModalProps {
   isOpen: boolean;
@@ -134,7 +134,7 @@ ${items
     (item, index) =>
       `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
         .slice(0, 16)
-        .padEnd(17)}${`${formatPrintBillQty(item.quantity, item.unit)} ${item.unit || 'pcs'}`.padStart(9)}${Number(item.price)
+        .padEnd(17)}${`${formatPrintBillQty(item.quantity, item.unit)} ${getTamilUnit(item.unit)}`.padStart(9)}${Number(item.price)
         .toFixed(2)
         .padStart(8)}${Number(item.total).toFixed(2).padStart(10)}`
   )

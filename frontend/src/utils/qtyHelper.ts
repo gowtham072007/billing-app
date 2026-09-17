@@ -26,6 +26,98 @@ const DECIMAL_UNITS = new Set([
 ]);
 
 /**
+ * Standard English to Tamil unit translation mapping for billing and receipts
+ */
+export const UNIT_TAMIL_MAP: Record<string, string> = {
+  // Weight
+  kg: 'கிலோ',
+  kilogram: 'கிலோ',
+  kilograms: 'கிலோ',
+  g: 'கிராம்',
+  gram: 'கிராம்',
+  grams: 'கிராம்',
+  gm: 'கிராம்',
+  gms: 'கிராம்',
+  mg: 'மி.கி',
+  milligram: 'மி.கி',
+  milligrams: 'மி.கி',
+  ton: 'டன்',
+  quintal: 'குவிண்டால்',
+
+  // Volume & Liquid
+  l: 'லிட்டர்',
+  liter: 'லிட்டர்',
+  liters: 'லிட்டர்',
+  litre: 'லிட்டர்',
+  litres: 'லிட்டர்',
+  ltr: 'லிட்டர்',
+  ml: 'மி.லி',
+  milliliter: 'மி.லி',
+  milliliters: 'மி.லி',
+  can: 'கேன்',
+  tin: 'டின்',
+  bottle: 'பாட்டில்',
+  bottles: 'பாட்டில்',
+
+  // Piece & Package
+  pcs: 'பீஸ்',
+  pc: 'பீஸ்',
+  piece: 'பீஸ்',
+  pieces: 'பீஸ்',
+  nos: 'எண்',
+  no: 'எண்',
+  number: 'எண்',
+  numbers: 'எண்',
+  packet: 'பாக்கெட்',
+  packets: 'பாக்கெட்',
+  pack: 'பேக்',
+  packs: 'பேக்',
+  pkt: 'பாக்கெட்',
+  pkts: 'பாக்கெட்',
+  bag: 'பை',
+  bags: 'பை',
+  box: 'பெட்டி',
+  boxes: 'பெட்டி',
+  carton: 'கார்டன்',
+  bundle: 'கட்டு',
+  bundles: 'கட்டு',
+  bndl: 'கட்டு',
+  doz: 'டஜன்',
+  dozen: 'டஜன்',
+  set: 'செட்',
+  sets: 'செட்',
+  pair: 'ஜோடி',
+  pairs: 'ஜோடி',
+  roll: 'ரோல்',
+  rolls: 'ரோல்',
+
+  // Length & Area
+  meter: 'மீட்டர்',
+  meters: 'மீட்டர்',
+  m: 'மீட்டர்',
+  cm: 'செ.மீ',
+  mm: 'மி.மீ',
+  inch: 'இன்ச்',
+  inches: 'இன்ச்',
+  ft: 'அடி',
+  feet: 'அடி',
+  yard: 'கஜம்',
+  sqft: 'ச.அடி',
+  sqm: 'ச.மீ',
+};
+
+/**
+ * Returns the Tamil translation of a unit of measurement.
+ * If no translation exists or it's already Tamil, returns the cleaned original unit.
+ */
+export function getTamilUnit(unit?: string): string {
+  if (!unit) return 'பீஸ்';
+  const clean = unit.trim();
+  const lower = clean.toLowerCase();
+  return UNIT_TAMIL_MAP[lower] || clean;
+}
+
+/**
  * Checks whether a given unit string supports decimal/fractional quantities
  */
 export function isDecimalUnit(unit?: string): boolean {
@@ -159,6 +251,15 @@ export function formatPrintBillQty(quantity: number, unit?: string): string {
 export function formatPrintBillQtyWithUnit(quantity: number, unit?: string): string {
   const qtyStr = formatPrintBillQty(quantity, unit);
   const u = (unit || 'pcs').trim();
+  return `${qtyStr} ${u}`;
+}
+
+/**
+ * Formats quantity with Tamil product unit for bill receipts e.g. "1 பீஸ்", "0.500 கிலோ", "1.250 லிட்டர்"
+ */
+export function formatPrintBillQtyWithTamilUnit(quantity: number, unit?: string): string {
+  const qtyStr = formatPrintBillQty(quantity, unit);
+  const u = getTamilUnit(unit);
   return `${qtyStr} ${u}`;
 }
 
