@@ -32,6 +32,7 @@ import { Bill, BillItem, Order, Product } from '../../types';
 import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModal';
 import { Badge } from '../../components/common/Badge';
 import { getAutoProductImage } from '../../utils/productImageHelper';
+import { getTamilUnit, formatQtyWithUnit } from '../../utils/qtyHelper';
 
 interface DashboardData {
   customer: {
@@ -184,7 +185,7 @@ export const CustomerDashboard: React.FC = () => {
               Welcome, {data?.customer?.name || user?.name || 'Customer'}!
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-              Track your live grocery orders, browse freshly updated inventory, and instantly view or print your store purchase receipts.
+              Track your live grocery orders, browse freshly updated inventory, and manage your customer profile.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-300">
@@ -574,8 +575,8 @@ export const CustomerDashboard: React.FC = () => {
                     {prod.name_tamil && (
                       <p className="text-[10px] text-slate-500 line-clamp-1">{prod.name}</p>
                     )}
-                    <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
-                      {prod.unit}
+                    <span className="text-[10px] font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded block mt-1 w-fit border border-brand-200/60">
+                      Per {prod.unit || 'pcs'} ({getTamilUnit(prod.unit)})
                     </span>
                   </div>
                 </div>
@@ -583,14 +584,16 @@ export const CustomerDashboard: React.FC = () => {
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-xs font-black font-mono text-slate-900">
                     ₹{prod.selling_price}
+                    <span className="text-[10px] text-slate-400 font-normal font-sans">/{prod.unit || 'pcs'}</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => handleQuickAdd(prod)}
-                    className="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition-colors shadow-2xs"
-                    title="Add 1 unit to cart"
+                    className="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition-colors shadow-2xs flex items-center gap-1 text-[11px] font-bold"
+                    title={`Add 1 ${prod.unit || 'pcs'} to cart`}
                   >
                     <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
                   </button>
                 </div>
               </div>
@@ -635,10 +638,11 @@ export const CustomerDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 4-inch Thermal Receipt Print Modal */}
+      {/* Digital Receipt View Modal */}
       {isReceiptModalOpen && selectedBill && (
         <ThermalReceiptModal
           isOpen={isReceiptModalOpen}
+          isCustomerView={true}
           onClose={() => {
             setIsReceiptModalOpen(false);
             setSelectedBill(null);

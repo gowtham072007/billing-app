@@ -264,6 +264,42 @@ export function formatPrintBillQtyWithTamilUnit(quantity: number, unit?: string)
 }
 
 /**
+ * Formats quantity for customer-facing display with friendly unit fractions
+ * e.g.,
+ *  - 0.25 kg -> "250g (¼ kg)"
+ *  - 0.5 kg -> "500g (½ kg)"
+ *  - 0.75 kg -> "750g (¾ kg)"
+ *  - 1 kg -> "1 kg"
+ *  - 1.5 kg -> "1.5 kg"
+ *  - 0.5 L -> "500ml (½ L)"
+ *  - 1 pcs -> "1 pcs"
+ */
+export function formatCustomerQtyDisplay(quantity: number, unit?: string): string {
+  if (typeof quantity !== 'number' || isNaN(quantity)) return '0';
+  const cleanUnit = (unit || 'pcs').trim();
+  const lowerUnit = cleanUnit.toLowerCase();
+  const q = Math.round(quantity * 1000) / 1000;
+
+  if (['kg', 'kilogram', 'kilograms'].includes(lowerUnit)) {
+    if (q === 0.25) return '250g (¼ kg)';
+    if (q === 0.5) return '500g (½ kg)';
+    if (q === 0.75) return '750g (¾ kg)';
+    if (q < 1 && q > 0) return `${Math.round(q * 1000)}g`;
+    return `${formatQtyNumber(q)} kg`;
+  }
+
+  if (['l', 'liter', 'liters', 'litre', 'litres', 'ltr'].includes(lowerUnit)) {
+    if (q === 0.25) return '250ml (¼ L)';
+    if (q === 0.5) return '500ml (½ L)';
+    if (q === 0.75) return '750ml (¾ L)';
+    if (q < 1 && q > 0) return `${Math.round(q * 1000)}ml`;
+    return `${formatQtyNumber(q)} L`;
+  }
+
+  return `${formatQtyNumber(q)} ${cleanUnit}`;
+}
+
+/**
  * Safely parses string or number input into a clean positive number
  */
 export function parseQtyInput(input: string | number, fallback = 1): number {
@@ -274,3 +310,5 @@ export function parseQtyInput(input: string | number, fallback = 1): number {
   if (isNaN(parsed) || parsed <= 0) return fallback;
   return Math.round(parsed * 1000) / 1000;
 }
+
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Trash2,
@@ -7,9 +7,6 @@ import {
   ShoppingBag,
   ArrowRight,
   CheckCircle2,
-  Phone,
-  MapPin,
-  FileText,
   AlertCircle,
   Store,
 } from 'lucide-react';
@@ -17,7 +14,175 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { api } from '../../api/client';
+import { CartItem } from '../../types';
 import { getAutoProductImage } from '../../utils/productImageHelper';
+import {
+  getQtyPresets,
+  getStepIncrement,
+  formatCustomerQtyDisplay,
+  formatQtyNumber,
+  isDecimalUnit,
+} from '../../utils/qtyHelper';
+
+const CartItemRow: React.FC<{
+  item: CartItem;
+  onUpdateQuantity: (id: number, qty: number) => void;
+  onRemove: (id: number) => void;
+}> = ({ item, onUpdateQuantity, onRemove }) => {
+  const [inputVal, setInputVal] = useState<string>(formatQtyNumber(item.quantity));
+  const presets = getQtyPresets(item.product.unit);
+  const isDec = isDecimalUnit(item.product.unit);
+
+  useEffect(() => {
+    setInputVal(formatQtyNumber(item.quantity));
+  }, [item.quantity]);
+
+  const handleStep = (delta: number) => {
+    const step = getStepIncrement(item.product.unit);
+    const newQ = Math.max(0, Math.round((item.quantity + delta * step) * 1000) / 1000);
+    onUpdateQuantity(item.product.id, newQ);
+  };
+
+  const handleInputBlur = () => {
+    const parsed = parseFloat(inputVal);
+    if (isNaN(parsed) || parsed <= 0) {
+      setInputVal(formatQtyNumber(item.quantity));
+    } else {
+      const clean = Math.min(item.product.stock, Math.round(parsed * 1000) / 1000);
+      onUpdateQuantity(item.product.id, clean);
+      setInputVal(formatQtyNumber(clean));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
+  };
+
+  const lineTotal = (item.product.selling_price * item.quantity).toFixed(2).replace(/\.00$/, '');
+
+  return (
+    <div className="py-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        {/* Product Image & Info */}
+        <div className="flex items-start gap-3 min-w-0">
+          <img
+            src={item.product.image || getAutoProductImage(item.product.name, item.product.name_tamil, item.product.category)}
+            alt={item.product.name}
+            className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0 bg-white p-0.5 shadow-xs"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = getAutoProductImage(item.product.name, item.product.name_tamil, item.product.category);
+            }}
+          />
+
+          <div className="min-w-0">
+            <h4 className="text-sm font-bold text-slate-900 leading-snug">
+              {item.product.name_tamil || item.product.name}
+            </h4>
+            {item.product.name_tamil && (
+              <p className="text-xs text-slate-500 font-medium truncate">{item.product.name}</p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <span className="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200">
+                ₹{item.product.selling_price} / {item.product.unit || 'pcs'}
+              </span>
+              <span className="text-xs text-slate-500">
+                Selected: <strong className="text-slate-900">{formatCustomerQtyDisplay(item.quantity, item.product.unit)}</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Line Price & Remove */}
+        <div className="flex flex-col items-end shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono font-black text-slate-900 text-base">
+              ₹{lineTotal}
+            </span>
+            <button
+              onClick={() => onRemove(item.product.id)}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              title="Remove item"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+            ₹{item.product.selling_price} × {formatQtyNumber(item.quantity)} {item.product.unit || 'pcs'}
+          </span>
+        </div>
+      </div>
+
+      {/* Quantity Selector & Quick Presets */}
+      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+        {/* Stepper with unit and editable input */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Qty:</span>
+          <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleStep(-1)}
+              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors"
+              title="Decrease quantity"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+
+            <div className="flex items-center px-1">
+              <input
+                type="number"
+                step={isDec ? '0.25' : '1'}
+                min="0.01"
+                max={item.product.stock}
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+                onBlur={handleInputBlur}
+                onKeyDown={handleKeyDown}
+                className="w-14 text-center font-bold text-xs font-mono bg-transparent border-none outline-none text-slate-900 p-0"
+              />
+              <span className="text-[11px] text-slate-500 font-medium ml-0.5 select-none">
+                {item.product.unit || 'pcs'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleStep(1)}
+              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors"
+              title="Increase quantity"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Quantity Presets */}
+        <div className="flex items-center gap-1.5 overflow-x-auto select-none">
+          <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">Presets:</span>
+          {presets.slice(0, 5).map((p) => {
+            const isSelected = Math.abs(item.quantity - p.value) < 0.001;
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => onUpdateQuantity(item.product.id, p.value)}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold font-mono transition-all ${
+                  isSelected
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:border-brand-300 hover:bg-brand-50/50'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const CartPage: React.FC = () => {
   const { items, updateQuantity, removeFromCart, clearCart, subtotal, totalItems } = useCart();
@@ -37,7 +202,6 @@ export const CartPage: React.FC = () => {
     setErrorMessage('');
 
     if (!isAuthenticated) {
-      // Prompt user to login before placing order
       navigate('/login?redirect=/customer/cart');
       return;
     }
@@ -176,73 +340,12 @@ export const CartPage: React.FC = () => {
             </div>
 
             {items.map(item => (
-              <div key={item.product.id} className="py-3.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={item.product.image || getAutoProductImage(item.product.name, item.product.name_tamil, item.product.category)}
-                    alt={item.product.name}
-                    className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 bg-white p-0.5"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = getAutoProductImage(item.product.name, item.product.name_tamil, item.product.category);
-                    }}
-                  />
-
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                      {item.product.name_tamil || item.product.name}
-                    </h4>
-                    {item.product.name_tamil && (
-                      <p className="text-[11px] text-slate-500 font-medium">{item.product.name}</p>
-                    )}
-                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      ₹{item.product.selling_price} / {item.product.unit}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Stepper & Total */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-200">
-                    <button
-                      onClick={() => {
-                        const step = item.product.unit && ['kg', 'l', 'litre', 'liter'].includes(item.product.unit.toLowerCase()) ? 0.5 : 1;
-                        const newQ = Math.max(0, Math.round((item.quantity - step) * 1000) / 1000);
-                        updateQuantity(item.product.id, newQ);
-                      }}
-                      className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
-                      title="Decrease quantity"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="min-w-10 text-center font-bold text-xs font-mono px-1">
-                      {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2).replace(/\.00$/, '')}
-                    </span>
-                    <button
-                      onClick={() => {
-                        const step = item.product.unit && ['kg', 'l', 'litre', 'liter'].includes(item.product.unit.toLowerCase()) ? 0.5 : 1;
-                        const newQ = Math.round((item.quantity + step) * 1000) / 1000;
-                        updateQuantity(item.product.id, newQ);
-                      }}
-                      className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
-                      title="Increase quantity"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <span className="font-mono font-bold text-slate-900 text-sm w-20 text-right">
-                    ₹{(item.product.selling_price * item.quantity).toFixed(2).replace(/\.00$/, '')}
-                  </span>
-
-                  <button
-                    onClick={() => removeFromCart(item.product.id)}
-                    className="p-1.5 text-slate-300 hover:text-rose-600 rounded transition-colors"
-                    title="Remove item"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <CartItemRow
+                key={item.product.id}
+                item={item}
+                onUpdateQuantity={updateQuantity}
+                onRemove={removeFromCart}
+              />
             ))}
           </div>
 
@@ -313,3 +416,4 @@ export const CartPage: React.FC = () => {
     </div>
   );
 };
+

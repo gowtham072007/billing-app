@@ -8,6 +8,7 @@ interface CartContextType {
   updateQuantity: (productId: number, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
+  totalQuantity: number;
   subtotal: number;
 }
 
@@ -94,7 +95,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('customer_cart');
   };
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = items.length;
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce((sum, item) => sum + item.product.selling_price * item.quantity, 0);
 
   return (
@@ -106,6 +108,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateQuantity,
         clearCart,
         totalItems,
+        totalQuantity,
         subtotal,
       }}
     >

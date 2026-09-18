@@ -16,6 +16,14 @@ import { api } from '../../api/client';
 import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
 import { getAutoProductImage } from '../../utils/productImageHelper';
+import {
+  getQtyPresets,
+  getStepIncrement,
+  formatCustomerQtyDisplay,
+  formatQtyNumber,
+  isDecimalUnit,
+  getTamilUnit,
+} from '../../utils/qtyHelper';
 
 export const CustomerCatalog: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -51,12 +59,18 @@ export const CustomerCatalog: React.FC = () => {
     fetchCatalog();
   }, []);
 
-  const handleQtyChange = (productId: number, delta: number, maxStock: number) => {
+  const handleQtyChange = (product: Product, delta: number) => {
+    const step = getStepIncrement(product.unit);
     setQuantities(prev => {
-      const current = prev[productId] || 1;
-      const next = Math.max(1, Math.min(current + delta, maxStock));
-      return { ...prev, [productId]: next };
+      const current = prev[product.id] ?? (isDecimalUnit(product.unit) ? 1 : 1);
+      const next = Math.max(step, Math.min(Math.round((current + delta * step) * 1000) / 1000, product.stock));
+      return { ...prev, [product.id]: next };
     });
+  };
+
+  const handleSetPreset = (productId: number, val: number, maxStock: number) => {
+    const safe = Math.min(val, maxStock);
+    setQuantities(prev => ({ ...prev, [productId]: safe }));
   };
 
   const handleAdd = (product: Product) => {
@@ -210,10 +224,16 @@ export const CustomerCatalog: React.FC = () => {
                   </div>
 
                   {/* Category & Title */}
-                  <span className="text-[10px] font-bold text-brand-600 uppercase tracking-wider block">
-                    {p.category}
-                  </span>
-                  <h3 className="text-sm font-bold text-slate-900 mt-0.5 line-clamp-1 leading-snug">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-brand-600 uppercase tracking-wider block">
+                      {p.category}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                      {p.unit || 'pcs'} ({getTamilUnit(p.unit)})
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-bold text-slate-900 mt-1 line-clamp-1 leading-snug">
                     {p.name_tamil || p.name}
                   </h3>
                   {p.name_tamil && (
@@ -221,38 +241,67 @@ export const CustomerCatalog: React.FC = () => {
                       {p.name}
                     </span>
                   )}
-                  <span className="text-xs text-slate-400 mt-0.5 block">Unit: {p.unit}</span>
                 </div>
 
                 {/* Pricing & Cart Action */}
-                <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Price</span>
-                      <span className="text-lg font-black text-slate-900 font-mono">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rate</span>
+                      <span className="text-base font-black text-slate-900 font-mono">
                         ₹{p.selling_price}
+                        <span className="text-xs font-normal text-slate-500 font-sans">/{p.unit || 'pcs'}</span>
                       </span>
                     </div>
 
-                    {/* Quantity Selector on card */}
+                    {/* Quantity Stepper */}
                     {!isOut && (
-                      <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl p-1 border border-slate-200">
+                      <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 border border-slate-200">
                         <button
-                          onClick={() => handleQtyChange(p.id, -1, p.stock)}
+                          type="button"
+                          onClick={() => handleQtyChange(p, -1)}
                           className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
+                          title="Decrease"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
-                        <span className="w-5 text-center font-bold text-xs font-mono">{currentQty}</span>
+                        <span className="min-w-12 px-1 text-center font-bold text-xs font-mono text-slate-900">
+                          {formatCustomerQtyDisplay(currentQty, p.unit)}
+                        </span>
                         <button
-                          onClick={() => handleQtyChange(p.id, 1, p.stock)}
+                          type="button"
+                          onClick={() => handleQtyChange(p, 1)}
                           className="w-6 h-6 rounded-lg bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
+                          title="Increase"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
                     )}
                   </div>
+
+                  {/* Quick Preset Buttons on card for weight / count */}
+                  {!isOut && (
+                    <div className="flex items-center gap-1 overflow-x-auto pb-0.5 select-none scrollbar-none">
+                      {getQtyPresets(p.unit).slice(0, 3).map(preset => {
+                        const isSelected = Math.abs(currentQty - preset.value) < 0.001;
+                        return (
+                          <button
+                            key={preset.value}
+                            type="button"
+                            onClick={() => handleSetPreset(p.id, preset.value, p.stock)}
+                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono transition-all ${
+                              isSelected
+                                ? 'bg-brand-600 text-white shadow-2xs'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/60'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Add to Cart Button */}
                   <button
@@ -274,7 +323,9 @@ export const CustomerCatalog: React.FC = () => {
                     ) : (
                       <>
                         <ShoppingCart className="w-4 h-4" />
-                        <span>Add to Cart</span>
+                        <span>
+                          Add ({formatCustomerQtyDisplay(currentQty, p.unit)}) • ₹{(p.selling_price * currentQty).toFixed(2).replace(/\.00$/, '')}
+                        </span>
                       </>
                     )}
                   </button>

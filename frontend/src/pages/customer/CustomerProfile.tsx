@@ -134,9 +134,10 @@ export const CustomerProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Thermal Receipt Preview Modal */}
+      {/* Digital Receipt View Modal */}
       <ThermalReceiptModal
         isOpen={isReceiptModalOpen}
+        isCustomerView={true}
         onClose={() => setIsReceiptModalOpen(false)}
         bill={selectedBill}
         items={selectedItems}
