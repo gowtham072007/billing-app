@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ProductSearchGrid } from '../../components/pos/ProductSearchGrid';
 import { BillCartTable, PosBillItem } from '../../components/pos/BillCartTable';
 import { BillSectionTabs, BillSectionData } from '../../components/pos/BillSectionTabs';
@@ -13,7 +13,7 @@ import { printReceiptElement } from '../../utils/thermalPrinter';
 import { Product, Customer, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useSettings } from '../../context/SettingsContext';
-import { useSocket } from '../../context/SocketContext';
+import { useSocket, SectionSyncedEvent, BillCompletedEvent } from '../../context/SocketContext';
 
 const createEmptySection = (id: number, defaultTax: number = 0): BillSectionData => ({
   id,
@@ -45,6 +45,9 @@ export const Billing: React.FC = () => {
   const [activeSectionId, setActiveSectionId] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Ref to prevent echo emission when applying incoming remote device updates
+  const isApplyingRemoteSyncRef = useRef<boolean>(false);
+
   // Modals State
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
@@ -72,6 +75,11 @@ export const Billing: React.FC = () => {
 
   // Synchronize active cart state to all connected devices in real time
   useEffect(() => {
+    if (isApplyingRemoteSyncRef.current) {
+      isApplyingRemoteSyncRef.current = false;
+      return;
+    }
+
     const currentSubtotal = activeSection.items.reduce((s, i) => s + i.total, 0);
     const currentDiscount =
       activeSection.discountType === 'percentage'
@@ -121,9 +129,79 @@ export const Billing: React.FC = () => {
     emitCartClear
   ]);
 
-  // Real-time stock updates and bill notifications from other devices
+  // Load initial persistent draft bills from database
+  const fetchDrafts = async () => {
+    try {
+      const res = await api.get<{ drafts: any[] }>('/pos/drafts');
+      if (res.drafts && Array.isArray(res.drafts)) {
+        isApplyingRemoteSyncRef.current = true;
+        setSections(prev =>
+          prev.map(s => {
+            const draft = res.drafts.find((d: any) => d.id === s.id);
+            if (draft) {
+              return {
+                id: draft.id,
+                items: draft.items || [],
+                selectedCustomer: draft.selectedCustomer || null,
+                rateMode: draft.rateMode || 'c_rate',
+                discount: Number(draft.discount) || 0,
+                discountType: draft.discountType || 'flat',
+                taxPercentage: draft.taxPercentage !== undefined ? Number(draft.taxPercentage) : (Number(settings.default_tax_rate) || 0),
+                paymentMethod: draft.paymentMethod || 'cash',
+                paymentReference: draft.paymentReference || '',
+                updatedByDevice: draft.updatedByDevice
+              };
+            }
+            return s;
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load initial POS drafts from server:', err);
+    }
+  };
+
+  // Real-time bidirectional cross-device sync: listen for draft changes, clearances, stock updates & completed bills
   useEffect(() => {
     if (!socket) return;
+
+    const handleSectionSynced = (event: SectionSyncedEvent) => {
+      if (!event?.section || event.updatedByDevice === deviceId) return;
+      const sec = event.section;
+      isApplyingRemoteSyncRef.current = true;
+      setSections(prev =>
+        prev.map(s => {
+          if (s.id === sec.id) {
+            return {
+              id: sec.id,
+              items: sec.items || [],
+              selectedCustomer: sec.selectedCustomer || null,
+              rateMode: sec.rateMode || 'c_rate',
+              discount: Number(sec.discount) || 0,
+              discountType: sec.discountType || 'flat',
+              taxPercentage: sec.taxPercentage !== undefined ? Number(sec.taxPercentage) : s.taxPercentage,
+              paymentMethod: sec.paymentMethod || 'cash',
+              paymentReference: sec.paymentReference || '',
+              updatedByDevice: sec.updatedByDevice || event.updatedByDevice
+            };
+          }
+          return s;
+        })
+      );
+    };
+
+    const handleSectionCleared = (data: { sectionId: number; clearedByDevice?: string }) => {
+      if (data.clearedByDevice === deviceId) return;
+      const secId = Number(data.sectionId);
+      isApplyingRemoteSyncRef.current = true;
+      setSections(prev =>
+        prev.map(s =>
+          s.id === secId
+            ? createEmptySection(secId, Number(settings.default_tax_rate) || 0)
+            : s
+        )
+      );
+    };
 
     const handleStockUpdate = (data: any) => {
       if (data?.product_id) {
@@ -133,11 +211,21 @@ export const Billing: React.FC = () => {
       }
     };
 
-    const handleBillCompleted = (event: any) => {
+    const handleBillCompleted = (event: BillCompletedEvent) => {
+      if (event?.sectionId) {
+        isApplyingRemoteSyncRef.current = true;
+        setSections(prev =>
+          prev.map(s =>
+            s.id === event.sectionId
+              ? createEmptySection(event.sectionId!, Number(settings.default_tax_rate) || 0)
+              : s
+          )
+        );
+      }
       if (event?.updatedProducts && Array.isArray(event.updatedProducts)) {
         setProducts(prev =>
           prev.map(p => {
-            const matched = event.updatedProducts.find((up: any) => up.id === p.id);
+            const matched = event.updatedProducts!.find((up: any) => up.id === p.id);
             return matched ? { ...p, stock: matched.stock } : p;
           })
         );
@@ -146,16 +234,20 @@ export const Billing: React.FC = () => {
       }
     };
 
+    socket.on('pos:section_synced', handleSectionSynced);
+    socket.on('pos:section_cleared', handleSectionCleared);
     socket.on('stock:updated', handleStockUpdate);
     socket.on('bill:completed', handleBillCompleted);
 
     return () => {
+      socket.off('pos:section_synced', handleSectionSynced);
+      socket.off('pos:section_cleared', handleSectionCleared);
       socket.off('stock:updated', handleStockUpdate);
       socket.off('bill:completed', handleBillCompleted);
     };
-  }, [socket]);
+  }, [socket, deviceId, settings.default_tax_rate]);
 
-  // Fetch Catalog
+  // Fetch Catalog & Drafts on component mount
   const fetchProducts = async () => {
     try {
       setIsLoadingProducts(true);
@@ -173,6 +265,7 @@ export const Billing: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchDrafts();
   }, []);
 
   // Update default tax when settings load
@@ -454,6 +547,7 @@ export const Billing: React.FC = () => {
     try {
       const payload = {
         deviceId,
+        sectionId: activeSectionId,
         customer_id: activeSection.selectedCustomer ? activeSection.selectedCustomer.id : null,
         customer_name: activeSection.selectedCustomer ? activeSection.selectedCustomer.name : 'Walk-in Customer',
         customer_phone: activeSection.selectedCustomer ? activeSection.selectedCustomer.phone : null,

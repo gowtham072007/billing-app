@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, ShoppingBag, User, CheckCircle2, Printer } from 'lucide-react';
+import { Layers, ShoppingBag, User, CheckCircle2, Printer, Wifi, RefreshCw, WifiOff } from 'lucide-react';
 import { Customer } from '../../types';
 import { PosBillItem } from './BillCartTable';
 import { getSavedPrinterName } from '../../utils/thermalPrinter';
+import { useSocket } from '../../context/SocketContext';
 
 export interface BillSectionData {
   id: number; // 1 to 10
@@ -14,6 +15,7 @@ export interface BillSectionData {
   taxPercentage: number;
   paymentMethod: 'cash' | 'upi' | 'card' | 'other';
   paymentReference: string;
+  updatedByDevice?: string;
 }
 
 interface BillSectionTabsProps {
@@ -29,6 +31,7 @@ export const BillSectionTabs: React.FC<BillSectionTabsProps> = ({
   onSelectSection,
 }) => {
   const [printerName, setPrinterName] = useState<string>(getSavedPrinterName());
+  const { syncStatus, onlineDeviceCount, deviceId } = useSocket();
 
   useEffect(() => {
     const handleStorage = () => {
@@ -40,7 +43,7 @@ export const BillSectionTabs: React.FC<BillSectionTabsProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm">
-      <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-100 px-1">
+      <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-100 px-1 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
             <Layers className="w-3.5 h-3.5" />
@@ -53,15 +56,49 @@ export const BillSectionTabs: React.FC<BillSectionTabsProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500 flex-wrap">
+          {/* Real-time Multi-device Sync Status Indicator */}
+          {syncStatus === 'live' && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold shadow-xs"
+              title="Real-Time Cloud & Local Multi-Device Sync Active"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Live Sync</span>
+              <span className="text-[10px] bg-emerald-200/70 text-emerald-900 px-1.5 py-0.2 rounded-full font-mono">
+                {onlineDeviceCount} {onlineDeviceCount === 1 ? 'device' : 'devices'}
+              </span>
+            </div>
+          )}
+
+          {syncStatus === 'syncing' && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold shadow-xs animate-pulse"
+              title="Synchronizing bill updates across devices..."
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin shrink-0" />
+              <span>Syncing...</span>
+            </div>
+          )}
+
+          {syncStatus === 'offline' && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold shadow-xs"
+              title="Disconnected from sync server. Attempting to reconnect..."
+            >
+              <WifiOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span>Offline Mode</span>
+            </div>
+          )}
+
           {/* Connected Printer Device Name Badge */}
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold shadow-xs"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-semibold shadow-xs"
             title="Connected Billing Machine / Thermal Printer"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <Printer className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="truncate max-w-[130px] sm:max-w-[200px]">
+            <Printer className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span className="truncate max-w-[110px] sm:max-w-[160px]">
               {printerName}
             </span>
           </div>

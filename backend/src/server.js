@@ -70,6 +70,7 @@ app.use('/api/stock', require('./routes/stock'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/bills', require('./routes/bills'));
+app.use('/api/pos/drafts', require('./routes/pos_drafts'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/settings', require('./routes/settings'));

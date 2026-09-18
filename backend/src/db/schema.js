@@ -128,6 +128,24 @@ function initSchema() {
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS pos_draft_bills (
+      section_id INTEGER PRIMARY KEY,
+      cashier_name TEXT DEFAULT 'Cashier',
+      selected_customer TEXT,
+      rate_mode TEXT DEFAULT 'c_rate',
+      discount REAL NOT NULL DEFAULT 0.0,
+      discount_type TEXT DEFAULT 'flat',
+      tax_percentage REAL NOT NULL DEFAULT 0.0,
+      tax_amount REAL NOT NULL DEFAULT 0.0,
+      payment_method TEXT DEFAULT 'cash',
+      payment_reference TEXT,
+      subtotal REAL NOT NULL DEFAULT 0.0,
+      grand_total REAL NOT NULL DEFAULT 0.0,
+      items_json TEXT NOT NULL DEFAULT '[]',
+      updated_by_device TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -140,6 +158,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
     CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
     CREATE INDEX IF NOT EXISTS idx_stock_product ON stock_transactions(product_id);
+    CREATE INDEX IF NOT EXISTS idx_pos_drafts_updated ON pos_draft_bills(updated_at);
   `);
 
   // Migration alters

@@ -162,6 +162,8 @@ router.get('/:id', authenticateToken, (req, res, next) => {
 router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
   try {
     const {
+      sectionId,
+      deviceId,
       customer_id,
       customer_name,
       customer_phone,
@@ -311,6 +313,11 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
         );
       }
 
+      // Clear draft from database for this section if present
+      if (sectionId) {
+        db.prepare('DELETE FROM pos_draft_bills WHERE section_id = ?').run(Number(sectionId));
+      }
+
       return { billId, billNumber, grandTotal };
     });
 
@@ -355,7 +362,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
         bill: completedBill,
         items: completedItems,
         cashierName: req.user.name || 'Admin',
-        deviceId: req.body.deviceId || null,
+        deviceId: deviceId || null,
+        sectionId: sectionId ? Number(sectionId) : null,
         today_sales: todayStats ? todayStats.today_sales_amount : 0,
         today_bills: todayStats ? todayStats.today_bills_count : 0,
         updatedProducts

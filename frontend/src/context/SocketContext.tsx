@@ -51,15 +51,41 @@ export interface BillCompletedEvent {
   items: BillItem[];
   cashierName: string;
   deviceId?: string;
+  sectionId?: number | null;
   today_sales: number;
   today_bills: number;
   updatedProducts?: Array<{ id: number; name: string; sku: string; stock: number }>;
   timestamp: string;
 }
 
+export interface SectionSyncedEvent {
+  section: {
+    id: number;
+    cashierName?: string;
+    items: any[];
+    selectedCustomer?: any;
+    rateMode?: 'c_rate' | 'w_rate';
+    discount?: number;
+    discountType?: 'flat' | 'percentage';
+    taxPercentage?: number;
+    taxAmount?: number;
+    paymentMethod?: 'cash' | 'upi' | 'card' | 'other';
+    paymentReference?: string;
+    subtotal?: number;
+    grandTotal?: number;
+    updatedByDevice?: string;
+    updatedAt?: string;
+  };
+  updatedByDevice: string;
+  timestamp: string;
+}
+
+export type SyncStatus = 'live' | 'syncing' | 'offline';
+
 interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
+  syncStatus: SyncStatus;
   onlineDeviceCount: number;
   deviceId: string;
   deviceLabel: string;
@@ -67,8 +93,10 @@ interface SocketContextType {
   activeSessions: LiveBillingSession[];
   lastCompletedBill: BillCompletedEvent | null;
   clearCompletedBillNotification: () => void;
-  emitCartUpdate: (cartData: Partial<LiveBillingSession> & { items: any[]; subtotal: number; grandTotal: number }) => void;
+  emitCartUpdate: (cartData: Partial<LiveBillingSession> & { sectionId?: number; items: any[]; subtotal: number; grandTotal: number }) => void;
   emitCartClear: (sectionId?: number) => void;
+  onSectionSynced?: (callback: (event: SectionSyncedEvent) => void) => () => void;
+  onSectionCleared?: (callback: (data: { sectionId: number; clearedByDevice?: string }) => void) => () => void;
   onStockUpdated?: (callback: (data: any) => void) => () => void;
   onBillCompleted?: (callback: (event: BillCompletedEvent) => void) => () => void;
 }
@@ -79,6 +107,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const { user, isAuthenticated } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('offline');
   const [onlineDeviceCount, setOnlineDeviceCount] = useState<number>(1);
   const [activeSessions, setActiveSessions] = useState<LiveBillingSession[]>([]);
   const [lastCompletedBill, setLastCompletedBill] = useState<BillCompletedEvent | null>(null);
@@ -129,6 +158,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     s.on('connect', () => {
       setIsConnected(true);
+      setSyncStatus('live');
       console.log('⚡ Connected to Real-Time WebSocket Server (ID:', s.id, ')');
 
       // Register device info
@@ -142,7 +172,13 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     s.on('disconnect', () => {
       setIsConnected(false);
+      setSyncStatus('offline');
       console.warn('⚠️ Disconnected from Real-Time WebSocket Server');
+    });
+
+    s.on('connect_error', () => {
+      setIsConnected(false);
+      setSyncStatus('offline');
     });
 
     s.on('devices:count', (data: { count: number }) => {
@@ -158,6 +194,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (typeof data?.onlineDeviceCount === 'number') {
         setOnlineDeviceCount(data.onlineDeviceCount);
       }
+      setSyncStatus('live');
     });
 
     // Real-time live cart updates from any cashier/terminal
@@ -209,9 +246,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [user, deviceId, deviceLabel]);
 
   // Broadcast Cart update
-  const emitCartUpdate = useCallback((cartData: Partial<LiveBillingSession> & { items: any[]; subtotal: number; grandTotal: number }) => {
+  const emitCartUpdate = useCallback((cartData: Partial<LiveBillingSession> & { sectionId?: number; items: any[]; subtotal: number; grandTotal: number }) => {
     if (!socketRef.current?.connected) return;
 
+    setSyncStatus('syncing');
     socketRef.current.emit('pos:cart_update', {
       ...cartData,
       deviceId,
@@ -219,17 +257,70 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       cashierName: user?.name || 'Cashier',
       timestamp: new Date().toISOString()
     });
+
+    setTimeout(() => {
+      if (socketRef.current?.connected) {
+        setSyncStatus('live');
+      }
+    }, 300);
   }, [deviceId, deviceLabel, user?.name]);
 
   // Broadcast Cart clear
   const emitCartClear = useCallback((sectionId?: number) => {
     if (!socketRef.current?.connected) return;
 
+    setSyncStatus('syncing');
     socketRef.current.emit('pos:cart_clear', {
       deviceId,
       sectionId: sectionId || 1
     });
+
+    setTimeout(() => {
+      if (socketRef.current?.connected) {
+        setSyncStatus('live');
+      }
+    }, 300);
   }, [deviceId]);
+
+  const onSectionSynced = useCallback((callback: (event: SectionSyncedEvent) => void) => {
+    const s = socketRef.current;
+    if (!s) return () => {};
+    const handler = (event: SectionSyncedEvent) => callback(event);
+    s.on('pos:section_synced', handler);
+    return () => {
+      s.off('pos:section_synced', handler);
+    };
+  }, []);
+
+  const onSectionCleared = useCallback((callback: (data: { sectionId: number; clearedByDevice?: string }) => void) => {
+    const s = socketRef.current;
+    if (!s) return () => {};
+    const handler = (data: { sectionId: number; clearedByDevice?: string }) => callback(data);
+    s.on('pos:section_cleared', handler);
+    return () => {
+      s.off('pos:section_cleared', handler);
+    };
+  }, []);
+
+  const onStockUpdated = useCallback((callback: (data: any) => void) => {
+    const s = socketRef.current;
+    if (!s) return () => {};
+    const handler = (data: any) => callback(data);
+    s.on('stock:updated', handler);
+    return () => {
+      s.off('stock:updated', handler);
+    };
+  }, []);
+
+  const onBillCompleted = useCallback((callback: (event: BillCompletedEvent) => void) => {
+    const s = socketRef.current;
+    if (!s) return () => {};
+    const handler = (event: BillCompletedEvent) => callback(event);
+    s.on('bill:completed', handler);
+    return () => {
+      s.off('bill:completed', handler);
+    };
+  }, []);
 
   const clearCompletedBillNotification = () => {
     setLastCompletedBill(null);
@@ -240,6 +331,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       value={{
         socket,
         isConnected,
+        syncStatus,
         onlineDeviceCount,
         deviceId,
         deviceLabel,
@@ -248,7 +340,11 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         lastCompletedBill,
         clearCompletedBillNotification,
         emitCartUpdate,
-        emitCartClear
+        emitCartClear,
+        onSectionSynced,
+        onSectionCleared,
+        onStockUpdated,
+        onBillCompleted
       }}
     >
       {children}

@@ -1,14 +1,59 @@
 const { Server } = require('socket.io');
+const db = require('./db/database');
 
 let ioInstance = null;
-
-// In-memory store of active POS billing sessions across all devices
-// Key: deviceId, Value: { deviceId, deviceLabel, cashierName, sectionId, items, subtotal, discount, taxAmount, grandTotal, customer, paymentMethod, updatedAt }
-const activeBillingSessions = new Map();
 
 // Map of connected sockets with device metadata
 // Key: socketId, Value: { deviceId, deviceLabel, cashierName, role, connectedAt }
 const connectedDevices = new Map();
+
+// Helper: Format raw database draft row into clean section object
+function formatDraftRow(row) {
+  if (!row) return null;
+  let items = [];
+  let selectedCustomer = null;
+
+  try {
+    items = JSON.parse(row.items_json || '[]');
+  } catch (e) {
+    items = [];
+  }
+
+  try {
+    selectedCustomer = row.selected_customer ? JSON.parse(row.selected_customer) : null;
+  } catch (e) {
+    selectedCustomer = null;
+  }
+
+  return {
+    id: row.section_id,
+    cashierName: row.cashier_name || 'Cashier',
+    items,
+    selectedCustomer,
+    rateMode: row.rate_mode || 'c_rate',
+    discount: Number(row.discount) || 0,
+    discountType: row.discount_type || 'flat',
+    taxPercentage: Number(row.tax_percentage) || 0,
+    taxAmount: Number(row.tax_amount) || 0,
+    paymentMethod: row.payment_method || 'cash',
+    paymentReference: row.payment_reference || '',
+    subtotal: Number(row.subtotal) || 0,
+    grandTotal: Number(row.grand_total) || 0,
+    updatedByDevice: row.updated_by_device || 'Unknown',
+    updatedAt: row.updated_at
+  };
+}
+
+// Helper: Fetch all active draft sessions from SQLite database
+function getDbDraftSessions() {
+  try {
+    const rows = db.prepare('SELECT * FROM pos_draft_bills ORDER BY section_id ASC').all();
+    return rows.map(formatDraftRow);
+  } catch (err) {
+    console.error('Failed to load POS draft sessions from DB:', err);
+    return [];
+  }
+}
 
 function initSocket(httpServer) {
   const io = new Server(httpServer, {
@@ -39,9 +84,11 @@ function initSocket(httpServer) {
         connectedAt: new Date().toISOString()
       });
 
-      // Send initial state to newly connected client: active billing sessions & online device count
+      const allDrafts = getDbDraftSessions();
+
+      // Send initial state to newly connected client: database-backed active drafts & online device count
       socket.emit('sync:initial_state', {
-        activeSessions: Array.from(activeBillingSessions.values()),
+        activeSessions: allDrafts,
         onlineDeviceCount: connectedDevices.size
       });
 
@@ -52,68 +99,157 @@ function initSocket(httpServer) {
       });
     });
 
-    // 2. POS Live Cart Update from Cashier Terminal
+    // 2. Real-Time POS Cart Update (Persistent in SQLite & Broadcast to all devices)
     socket.on('pos:cart_update', (cartData) => {
       if (!cartData || !cartData.deviceId) return;
 
-      const session = {
-        deviceId: cartData.deviceId,
-        deviceLabel: cartData.deviceLabel || 'POS Terminal',
-        cashierName: cartData.cashierName || 'Cashier',
-        sectionId: cartData.sectionId || 1,
-        items: Array.isArray(cartData.items) ? cartData.items : [],
-        itemCount: Array.isArray(cartData.items) ? cartData.items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0) : 0,
-        subtotal: Number(cartData.subtotal) || 0,
-        discount: Number(cartData.discount) || 0,
-        discountType: cartData.discountType || 'flat',
-        taxPercentage: Number(cartData.taxPercentage) || 0,
-        taxAmount: Number(cartData.taxAmount) || 0,
-        grandTotal: Number(cartData.grandTotal) || 0,
-        selectedCustomer: cartData.selectedCustomer || null,
-        paymentMethod: cartData.paymentMethod || 'cash',
-        rateMode: cartData.rateMode || 'c_rate',
-        status: cartData.items?.length > 0 ? 'active' : 'empty',
+      const sectionId = Number(cartData.sectionId) || 1;
+      const cashierName = cartData.cashierName || 'Cashier';
+      const items = Array.isArray(cartData.items) ? cartData.items : [];
+      const selectedCustomer = cartData.selectedCustomer || null;
+      const rateMode = cartData.rateMode || 'c_rate';
+      const discount = Number(cartData.discount) || 0;
+      const discountType = cartData.discountType || 'flat';
+      const taxPercentage = Number(cartData.taxPercentage) || 0;
+      const taxAmount = Number(cartData.taxAmount) || 0;
+      const subtotal = Number(cartData.subtotal) || 0;
+      const grandTotal = Number(cartData.grandTotal) || 0;
+      const paymentMethod = cartData.paymentMethod || 'cash';
+      const paymentReference = cartData.paymentReference || '';
+      const deviceId = cartData.deviceId;
+
+      try {
+        if (items.length > 0) {
+          const itemsJson = JSON.stringify(items);
+          const customerJson = selectedCustomer ? JSON.stringify(selectedCustomer) : null;
+
+          const stmt = db.prepare(`
+            INSERT INTO pos_draft_bills (
+              section_id, cashier_name, selected_customer, rate_mode,
+              discount, discount_type, tax_percentage, tax_amount,
+              payment_method, payment_reference, subtotal, grand_total,
+              items_json, updated_by_device, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(section_id) DO UPDATE SET
+              cashier_name = excluded.cashier_name,
+              selected_customer = excluded.selected_customer,
+              rate_mode = excluded.rate_mode,
+              discount = excluded.discount,
+              discount_type = excluded.discount_type,
+              tax_percentage = excluded.tax_percentage,
+              tax_amount = excluded.tax_amount,
+              payment_method = excluded.payment_method,
+              payment_reference = excluded.payment_reference,
+              subtotal = excluded.subtotal,
+              grand_total = excluded.grand_total,
+              items_json = excluded.items_json,
+              updated_by_device = excluded.updated_by_device,
+              updated_at = CURRENT_TIMESTAMP
+          `);
+
+          stmt.run(
+            sectionId,
+            cashierName,
+            customerJson,
+            rateMode,
+            discount,
+            discountType,
+            taxPercentage,
+            taxAmount,
+            paymentMethod,
+            paymentReference,
+            subtotal,
+            grandTotal,
+            itemsJson,
+            deviceId
+          );
+        } else {
+          db.prepare('DELETE FROM pos_draft_bills WHERE section_id = ?').run(sectionId);
+        }
+      } catch (err) {
+        console.error('Error persisting POS draft cart in DB:', err);
+      }
+
+      const allDrafts = getDbDraftSessions();
+      const updatedSection = allDrafts.find(d => d.id === sectionId) || {
+        id: sectionId,
+        cashierName,
+        items,
+        selectedCustomer,
+        rateMode,
+        discount,
+        discountType,
+        taxPercentage,
+        taxAmount,
+        subtotal,
+        grandTotal,
+        paymentMethod,
+        paymentReference,
+        updatedByDevice: deviceId,
         updatedAt: new Date().toISOString()
       };
 
-      if (session.items.length > 0) {
-        activeBillingSessions.set(session.deviceId, session);
-      } else {
-        activeBillingSessions.delete(session.deviceId);
-      }
+      // 1. Broadcast section sync to other POS Billing instances (Mobile / Laptop / Desktop)
+      io.emit('pos:section_synced', {
+        section: updatedSection,
+        updatedByDevice: deviceId,
+        timestamp: new Date().toISOString()
+      });
 
-      // Broadcast to all other devices (Admin Dashboards and other terminals)
+      // 2. Broadcast live monitor update for Admin Dashboard
       io.emit('pos:live_activity_updated', {
-        session,
-        activeSessions: Array.from(activeBillingSessions.values())
+        session: {
+          deviceId,
+          deviceLabel: cartData.deviceLabel || 'POS Terminal',
+          cashierName,
+          sectionId,
+          items,
+          itemCount: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
+          subtotal,
+          discount,
+          discountType,
+          taxPercentage,
+          taxAmount,
+          grandTotal,
+          selectedCustomer,
+          paymentMethod,
+          rateMode,
+          status: items.length > 0 ? 'active' : 'empty',
+          updatedAt: new Date().toISOString()
+        },
+        activeSessions: allDrafts
       });
     });
 
-    // 3. POS Clear Cart
+    // 3. Real-Time POS Clear Cart
     socket.on('pos:cart_clear', ({ deviceId, sectionId }) => {
-      if (deviceId) {
-        activeBillingSessions.delete(deviceId);
+      const secId = Number(sectionId) || 1;
+      try {
+        db.prepare('DELETE FROM pos_draft_bills WHERE section_id = ?').run(secId);
+      } catch (err) {
+        console.error('Error clearing POS draft cart from DB:', err);
       }
+
+      const allDrafts = getDbDraftSessions();
+
+      // Broadcast section cleared to all POS billing pages
+      io.emit('pos:section_cleared', {
+        sectionId: secId,
+        clearedByDevice: deviceId,
+        timestamp: new Date().toISOString()
+      });
+
+      // Broadcast live monitor cleared for Admin Dashboard
       io.emit('pos:live_activity_cleared', {
         deviceId,
-        sectionId,
-        activeSessions: Array.from(activeBillingSessions.values())
+        sectionId: secId,
+        activeSessions: allDrafts
       });
     });
 
     // 4. Disconnect Handler
     socket.on('disconnect', () => {
-      const dev = connectedDevices.get(socket.id);
       connectedDevices.delete(socket.id);
-
-      // If this device had an active cart, remove it
-      if (dev && dev.deviceId) {
-        activeBillingSessions.delete(dev.deviceId);
-        io.emit('pos:live_activity_cleared', {
-          deviceId: dev.deviceId,
-          activeSessions: Array.from(activeBillingSessions.values())
-        });
-      }
 
       io.emit('devices:count', {
         count: connectedDevices.size,
@@ -122,7 +258,7 @@ function initSocket(httpServer) {
     });
   });
 
-  console.log('⚡ Socket.IO Real-Time Server initialized successfully.');
+  console.log('⚡ Socket.IO Real-Time Server initialized successfully with Shared SQLite Draft Persistence.');
   return io;
 }
 
@@ -134,14 +270,26 @@ function getIO() {
 function broadcastBillCompleted(payload) {
   if (!ioInstance) return;
 
-  // Clear live cart session for the device that submitted this bill if present
-  if (payload.deviceId) {
-    activeBillingSessions.delete(payload.deviceId);
+  // If sectionId is provided, clear that draft from SQLite
+  if (payload.sectionId) {
+    try {
+      db.prepare('DELETE FROM pos_draft_bills WHERE section_id = ?').run(Number(payload.sectionId));
+    } catch (e) {}
+  }
+
+  const allDrafts = getDbDraftSessions();
+
+  if (payload.sectionId) {
+    ioInstance.emit('pos:section_cleared', {
+      sectionId: Number(payload.sectionId),
+      clearedByDevice: payload.deviceId || 'POS-Terminal',
+      timestamp: new Date().toISOString()
+    });
   }
 
   ioInstance.emit('bill:completed', {
     ...payload,
-    activeSessions: Array.from(activeBillingSessions.values()),
+    activeSessions: allDrafts,
     timestamp: new Date().toISOString()
   });
 }
@@ -168,5 +316,6 @@ module.exports = {
   broadcastBillCompleted,
   broadcastStockUpdated,
   broadcastOrderUpdated,
-  activeBillingSessions
+  getDbDraftSessions
 };
+
