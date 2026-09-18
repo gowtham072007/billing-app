@@ -192,3 +192,36 @@ export interface DashboardStats {
     top_products: Array<{ name: string; quantity: number; revenue: number }>;
   };
 }
+
+export interface LiveCartItem {
+  product_id: number;
+  product_name: string;
+  product_name_tamil?: string | null;
+  sku?: string;
+  unit: string;
+  quantity: number;
+  price: number;
+  rate_type: 'c_rate' | 'w_rate';
+  total: number;
+}
+
+export interface LiveBillingSession {
+  deviceId: string;
+  deviceLabel: string;
+  cashierName: string;
+  sectionId: number;
+  items: LiveCartItem[];
+  itemCount: number;
+  subtotal: number;
+  discount: number;
+  discountType: DiscountType;
+  taxPercentage: number;
+  taxAmount: number;
+  grandTotal: number;
+  selectedCustomer: Customer | null;
+  paymentMethod: PaymentMethod;
+  rateMode: 'c_rate' | 'w_rate';
+  status: 'active' | 'empty';
+  updatedAt: string;
+}
+

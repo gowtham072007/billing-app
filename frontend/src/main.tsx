@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { CartProvider } from './context/CartContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -22,11 +23,13 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <BrowserRouter>
       <LanguageProvider>
         <AuthProvider>
-          <SettingsProvider>
-            <CartProvider>
-              <App />
-            </CartProvider>
-          </SettingsProvider>
+          <SocketProvider>
+            <SettingsProvider>
+              <CartProvider>
+                <App />
+              </CartProvider>
+            </SettingsProvider>
+          </SocketProvider>
         </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>

@@ -332,6 +332,38 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
     const settings = {};
     settingsRows.forEach(row => { settings[row.key] = row.value; });
 
+    // Broadcast Real-Time Event to all connected devices (Admin Dashboards, other POS terminals)
+    try {
+      const { broadcastBillCompleted } = require('../socket');
+      
+      // Calculate latest today summary to broadcast
+      const todayStats = db.prepare(`
+        SELECT 
+          COUNT(*) as today_bills_count,
+          COALESCE(SUM(grand_total), 0) as today_sales_amount
+        FROM bills
+        WHERE DATE(created_at) = DATE('now', 'localtime')
+      `).get();
+
+      // Get updated stock of all items in this bill
+      const updatedProducts = validatedItems.map(vi => {
+        const prod = db.prepare('SELECT id, name, sku, stock FROM products WHERE id = ?').get(vi.product_id);
+        return prod;
+      }).filter(Boolean);
+
+      broadcastBillCompleted({
+        bill: completedBill,
+        items: completedItems,
+        cashierName: req.user.name || 'Admin',
+        deviceId: req.body.deviceId || null,
+        today_sales: todayStats ? todayStats.today_sales_amount : 0,
+        today_bills: todayStats ? todayStats.today_bills_count : 0,
+        updatedProducts
+      });
+    } catch (wsErr) {
+      console.error('Failed to broadcast real-time bill:completed event:', wsErr);
+    }
+
     res.status(201).json({
       message: 'Bill generated successfully with Tamil product names!',
       bill: completedBill,

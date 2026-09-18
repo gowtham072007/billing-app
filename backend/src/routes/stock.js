@@ -135,6 +135,16 @@ router.post('/adjust', authenticateToken, requireAdmin, (req, res, next) => {
 
     const result = tx();
 
+    try {
+      const { broadcastStockUpdated } = require('../socket');
+      broadcastStockUpdated({
+        product_id,
+        previous_stock: prevStock,
+        new_stock: result.newStock,
+        product_name: product.name
+      });
+    } catch (wsErr) {}
+
     res.json({
       message: `Stock for "${product.name}" successfully updated to ${result.newStock}.`,
       product_id,

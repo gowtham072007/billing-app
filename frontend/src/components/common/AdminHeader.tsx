@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useSocket } from '../../context/SocketContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { InstallAppButton } from './InstallAppButton';
 
@@ -29,6 +30,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   const { user } = useAuth();
   const { settings } = useSettings();
   const { t } = useLanguage();
+  const { isConnected, onlineDeviceCount } = useSocket();
   const location = useLocation();
 
   // Determine current page name for top breadcrumb
@@ -87,6 +89,15 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
       {/* Right: Quick Action Shortcuts (POS Billing, Store, Language, App Install) */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Live Sync Badge */}
+        <div
+          className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-700 shadow-2xs"
+          title={isConnected ? `Real-Time Sync Connected (${onlineDeviceCount} devices)` : 'Connecting to Real-Time Server...'}
+        >
+          <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+          <span>{isConnected ? `Live Sync (${onlineDeviceCount})` : 'Syncing...'}</span>
+        </div>
+
         {/* Quick POS Billing Button */}
         {!location.pathname.includes('/billing') && (
           <Link

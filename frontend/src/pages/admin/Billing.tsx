@@ -13,6 +13,7 @@ import { printReceiptElement } from '../../utils/thermalPrinter';
 import { Product, Customer, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useSettings } from '../../context/SettingsContext';
+import { useSocket } from '../../context/SocketContext';
 
 const createEmptySection = (id: number, defaultTax: number = 0): BillSectionData => ({
   id,
@@ -28,6 +29,7 @@ const createEmptySection = (id: number, defaultTax: number = 0): BillSectionData
 
 export const Billing: React.FC = () => {
   const { settings } = useSettings();
+  const { socket, isConnected, onlineDeviceCount, deviceId, deviceLabel, emitCartUpdate, emitCartClear } = useSocket();
 
   // Catalog State
   const [products, setProducts] = useState<Product[]>([]);
@@ -67,6 +69,91 @@ export const Billing: React.FC = () => {
     },
     [activeSectionId]
   );
+
+  // Synchronize active cart state to all connected devices in real time
+  useEffect(() => {
+    const currentSubtotal = activeSection.items.reduce((s, i) => s + i.total, 0);
+    const currentDiscount =
+      activeSection.discountType === 'percentage'
+        ? (currentSubtotal * (activeSection.discount || 0)) / 100
+        : activeSection.discount || 0;
+    const currentTaxable = Math.max(0, currentSubtotal - currentDiscount);
+    const currentTax = (currentTaxable * (activeSection.taxPercentage || 0)) / 100;
+    const currentGrandTotal = Math.round(currentTaxable + currentTax);
+
+    if (activeSection.items.length > 0) {
+      emitCartUpdate({
+        sectionId: activeSectionId,
+        items: activeSection.items.map(i => ({
+          product_id: i.product_id,
+          product_name: i.product_name,
+          product_name_tamil: i.product_name_tamil,
+          sku: i.sku,
+          unit: i.unit,
+          quantity: i.quantity,
+          price: i.price,
+          rate_type: i.rate_type,
+          total: i.total
+        })),
+        subtotal: currentSubtotal,
+        discount: currentDiscount,
+        discountType: activeSection.discountType,
+        taxPercentage: activeSection.taxPercentage,
+        taxAmount: currentTax,
+        grandTotal: currentGrandTotal,
+        selectedCustomer: activeSection.selectedCustomer,
+        paymentMethod: activeSection.paymentMethod,
+        rateMode: activeSection.rateMode,
+      });
+    } else {
+      emitCartClear(activeSectionId);
+    }
+  }, [
+    activeSectionId,
+    activeSection.items,
+    activeSection.discount,
+    activeSection.discountType,
+    activeSection.taxPercentage,
+    activeSection.paymentMethod,
+    activeSection.rateMode,
+    activeSection.selectedCustomer,
+    emitCartUpdate,
+    emitCartClear
+  ]);
+
+  // Real-time stock updates and bill notifications from other devices
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStockUpdate = (data: any) => {
+      if (data?.product_id) {
+        setProducts(prev =>
+          prev.map(p => (p.id === data.product_id ? { ...p, stock: data.new_stock } : p))
+        );
+      }
+    };
+
+    const handleBillCompleted = (event: any) => {
+      if (event?.updatedProducts && Array.isArray(event.updatedProducts)) {
+        setProducts(prev =>
+          prev.map(p => {
+            const matched = event.updatedProducts.find((up: any) => up.id === p.id);
+            return matched ? { ...p, stock: matched.stock } : p;
+          })
+        );
+      } else {
+        fetchProducts();
+      }
+    };
+
+    socket.on('stock:updated', handleStockUpdate);
+    socket.on('bill:completed', handleBillCompleted);
+
+    return () => {
+      socket.off('stock:updated', handleStockUpdate);
+      socket.off('bill:completed', handleBillCompleted);
+    };
+  }, [socket]);
 
   // Fetch Catalog
   const fetchProducts = async () => {
@@ -366,6 +453,7 @@ export const Billing: React.FC = () => {
 
     try {
       const payload = {
+        deviceId,
         customer_id: activeSection.selectedCustomer ? activeSection.selectedCustomer.id : null,
         customer_name: activeSection.selectedCustomer ? activeSection.selectedCustomer.name : 'Walk-in Customer',
         customer_phone: activeSection.selectedCustomer ? activeSection.selectedCustomer.phone : null,

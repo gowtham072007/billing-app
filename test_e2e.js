@@ -1,7 +1,20 @@
 const BASE_URL = 'http://localhost:5000/api';
+const { httpServer, ensureDbInitialized } = require('./backend/src/server');
 
 async function runE2ETests() {
   console.log('🧪 Starting Comprehensive E2E Verification Test Suite...\n');
+
+  await ensureDbInitialized();
+
+  // Start HTTP server on 5000 if not listening
+  let serverInstance = null;
+  if (!httpServer.listening) {
+    await new Promise((resolve) => {
+      serverInstance = httpServer.listen(5000, '0.0.0.0', () => {
+        resolve();
+      });
+    });
+  }
 
   let passed = 0;
   let failed = 0;
@@ -198,8 +211,16 @@ async function runE2ETests() {
     console.log(`\n=================================================`);
     console.log(`🎉 ALL TESTS COMPLETED: ${passed} PASSED, ${failed} FAILED`);
     console.log(`=================================================`);
+
+    if (serverInstance) {
+      serverInstance.close(() => process.exit(failed > 0 ? 1 : 0));
+    } else {
+      process.exit(failed > 0 ? 1 : 0);
+    }
   } catch (err) {
     console.error('Fatal test error:', err);
+    if (serverInstance) serverInstance.close();
+    process.exit(1);
   }
 }
 

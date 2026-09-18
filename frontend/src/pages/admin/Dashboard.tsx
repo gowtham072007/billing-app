@@ -30,9 +30,11 @@ import {
 import { StatCard } from '../../components/common/StatCard';
 import { Badge } from '../../components/common/Badge';
 import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModal';
+import { LiveBillingMonitor } from '../../components/pos/LiveBillingMonitor';
 import { DashboardStats, Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
 import { useSettings } from '../../context/SettingsContext';
+import { useSocket, BillCompletedEvent } from '../../context/SocketContext';
 
 const COLORS = ['#16a34a', '#0284c7', '#8b5cf6', '#f59e0b', '#ec4899'];
 
@@ -40,6 +42,7 @@ export const Dashboard: React.FC = () => {
   const [data, setData] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { settings } = useSettings();
+  const { socket, isConnected, onlineDeviceCount } = useSocket();
   const navigate = useNavigate();
 
   // Receipt Modal state for instant reprint
@@ -50,6 +53,71 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchStats();
   }, []);
+
+  // Real-time synchronization: listen for live completed bills, new customer orders, and stock updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleBillCompleted = (event: BillCompletedEvent) => {
+      setData(prev => {
+        if (!prev) return prev;
+
+        const newBill = event.bill;
+        const exists = prev.recent_bills.some(b => b.id === newBill.id || b.bill_number === newBill.bill_number);
+        const updatedRecentBills = exists
+          ? prev.recent_bills
+          : [newBill, ...prev.recent_bills.slice(0, 4)];
+
+        // Update payment breakdown chart
+        const updatedPaymentBreakdown = [...prev.charts.payment_breakdown];
+        const matchPayment = updatedPaymentBreakdown.find(
+          p => p.payment_method?.toLowerCase() === newBill.payment_method?.toLowerCase()
+        );
+        if (matchPayment) {
+          matchPayment.total_amount = Number(matchPayment.total_amount || 0) + Number(newBill.grand_total || 0);
+          matchPayment.count = Number(matchPayment.count || 0) + 1;
+        } else {
+          updatedPaymentBreakdown.push({
+            payment_method: newBill.payment_method,
+            total_amount: Number(newBill.grand_total || 0),
+            count: 1
+          });
+        }
+
+        return {
+          ...prev,
+          summary: {
+            ...prev.summary,
+            today_sales: typeof event.today_sales === 'number' ? event.today_sales : prev.summary.today_sales + Number(newBill.grand_total || 0),
+            today_bills: typeof event.today_bills === 'number' ? event.today_bills : prev.summary.today_bills + 1
+          },
+          recent_bills: updatedRecentBills,
+          charts: {
+            ...prev.charts,
+            payment_breakdown: updatedPaymentBreakdown
+          }
+        };
+      });
+    };
+
+    const handleOrdersUpdated = () => {
+      fetchStats();
+    };
+
+    const handleStockUpdated = () => {
+      fetchStats();
+    };
+
+    socket.on('bill:completed', handleBillCompleted);
+    socket.on('orders:updated', handleOrdersUpdated);
+    socket.on('stock:updated', handleStockUpdated);
+
+    return () => {
+      socket.off('bill:completed', handleBillCompleted);
+      socket.off('orders:updated', handleOrdersUpdated);
+      socket.off('stock:updated', handleStockUpdated);
+    };
+  }, [socket]);
 
   const fetchStats = async () => {
     try {
@@ -98,7 +166,13 @@ export const Dashboard: React.FC = () => {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Admin Dashboard</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Admin Dashboard</h1>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span>{isConnected ? `Real-Time Sync (${onlineDeviceCount} Devices)` : 'Connecting Sync...'}</span>
+            </div>
+          </div>
           <p className="text-xs text-slate-500 mt-1">
             Store performance, live sales analytics & inventory updates
           </p>
@@ -165,6 +239,9 @@ export const Dashboard: React.FC = () => {
           onClick={() => navigate('/admin/orders')}
         />
       </div>
+
+      {/* Real-Time Live POS Terminal Activity Mirroring Widget */}
+      <LiveBillingMonitor onReprintBill={handleViewBill} />
 
       {/* Analytics Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

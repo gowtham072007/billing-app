@@ -1,3 +1,4 @@
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -6,8 +7,10 @@ const db = require('./db/database');
 const { errorHandler } = require('./middleware/error');
 const { initSchema } = require('./db/schema');
 const { seedDatabase } = require('./db/seed');
+const { initSocket } = require('./socket');
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
@@ -20,6 +23,9 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Initialize Socket.IO
+initSocket(httpServer);
 
 let isDbInitialized = false;
 let dbInitPromise = null;
@@ -52,7 +58,7 @@ app.use(async (req, res, next) => {
 app.get(['/health', '/api/health'], (req, res) => {
   res.status(200).json({
     status: 'ok',
-    message: 'Billing & Order Management API is live and operational.',
+    message: 'Billing & Order Management API is live and operational with Real-Time WebSockets.',
     timestamp: new Date().toISOString()
   });
 });
@@ -97,10 +103,11 @@ async function startServer() {
     initSchema();
     await seedDatabase();
 
-    app.listen(PORT, HOST, () => {
+    httpServer.listen(PORT, HOST, () => {
       console.log(`=================================================`);
       console.log(`🚀 Billing & Order Management Server running on port ${PORT}`);
       console.log(`📡 API Endpoints active at http://${HOST}:${PORT}/api`);
+      console.log(`⚡ WebSocket Real-Time Sync active on port ${PORT}`);
       console.log(`=================================================`);
     });
   } catch (err) {
@@ -113,4 +120,4 @@ if (require.main === module) {
   startServer();
 }
 
-module.exports = { app, ensureDbInitialized, startServer };
+module.exports = { app, httpServer, ensureDbInitialized, startServer };
