@@ -33,6 +33,9 @@ export const Billing: React.FC = () => {
 
   // Catalog State
   const [products, setProducts] = useState<Product[]>([]);
+  const productsRef = useRef<Product[]>([]);
+  productsRef.current = products;
+
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
 
@@ -129,6 +132,30 @@ export const Billing: React.FC = () => {
     emitCartClear
   ]);
 
+  // Helper to normalize incoming draft or synced items with product catalog info
+  const normalizeIncomingItems = useCallback((incomingItems: any[]): PosBillItem[] => {
+    const catalog = productsRef.current;
+    return (incomingItems || []).map((it: any) => {
+      const matched = catalog.find(p => p.id === it.product_id);
+      const qty = Number(it.quantity) || 1;
+      const price = Number(it.price) || matched?.selling_price || 0;
+      return {
+        product_id: it.product_id,
+        product_name: it.product_name || matched?.name || '',
+        product_name_tamil: it.product_name_tamil || matched?.name_tamil || null,
+        sku: it.sku || matched?.sku || '',
+        unit: it.unit || matched?.unit || 'pcs',
+        quantity: qty,
+        price: price,
+        rate_type: it.rate_type || 'c_rate',
+        c_rate: it.c_rate || matched?.c_rate || matched?.selling_price || price,
+        w_rate: it.w_rate || matched?.w_rate || price,
+        total: it.total !== undefined ? Number(it.total) : Math.round(qty * price * 100) / 100,
+        available_stock: it.available_stock !== undefined ? Number(it.available_stock) : (matched?.stock ?? 999)
+      };
+    });
+  }, []);
+
   // Load initial persistent draft bills from database
   const fetchDrafts = async () => {
     try {
@@ -141,7 +168,7 @@ export const Billing: React.FC = () => {
             if (draft) {
               return {
                 id: draft.id,
-                items: draft.items || [],
+                items: normalizeIncomingItems(draft.items || []),
                 selectedCustomer: draft.selectedCustomer || null,
                 rateMode: draft.rateMode || 'c_rate',
                 discount: Number(draft.discount) || 0,
@@ -174,7 +201,7 @@ export const Billing: React.FC = () => {
           if (s.id === sec.id) {
             return {
               id: sec.id,
-              items: sec.items || [],
+              items: normalizeIncomingItems(sec.items || []),
               selectedCustomer: sec.selectedCustomer || null,
               rateMode: sec.rateMode || 'c_rate',
               discount: Number(sec.discount) || 0,

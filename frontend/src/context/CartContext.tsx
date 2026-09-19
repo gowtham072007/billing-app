@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Product, CartItem } from '../types';
+import { useSocket } from './SocketContext';
+import { useAuth } from './AuthContext';
 
 interface CartContextType {
   items: CartItem[];
@@ -15,6 +17,10 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { emitCartUpdate, emitCartClear, isConnected } = useSocket();
+  const { user } = useAuth();
+  const isInitialMountRef = useRef<boolean>(true);
+
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('customer_cart');
@@ -27,6 +33,54 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     localStorage.setItem('customer_cart', JSON.stringify(items));
   }, [items]);
+
+  // Synchronize cart with Laptop POS Draft Bill & Admin Dashboard in real time
+  useEffect(() => {
+    if (!isConnected) return;
+
+    if (items.length > 0) {
+      const sectionItems = items.map(item => ({
+        product_id: item.product.id,
+        product_name: item.product.name,
+        product_name_tamil: item.product.name_tamil || null,
+        sku: item.product.sku || '',
+        unit: item.product.unit || 'pcs',
+        quantity: item.quantity,
+        price: item.product.selling_price,
+        rate_type: 'c_rate' as const,
+        c_rate: item.product.c_rate || item.product.selling_price,
+        w_rate: item.product.w_rate || item.product.selling_price,
+        total: Math.round(item.product.selling_price * item.quantity * 100) / 100,
+        available_stock: item.product.stock
+      }));
+
+      const currentSubtotal = sectionItems.reduce((s, i) => s + i.total, 0);
+      const currentGrandTotal = Math.round(currentSubtotal);
+
+      emitCartUpdate({
+        sectionId: 1,
+        items: sectionItems,
+        subtotal: currentSubtotal,
+        discount: 0,
+        discountType: 'flat',
+        taxPercentage: 0,
+        taxAmount: 0,
+        grandTotal: currentGrandTotal,
+        selectedCustomer: user
+          ? { id: user.id, name: user.name, phone: user.phone || '' }
+          : null,
+        cashierName: user?.name ? `${user.name} (Mobile)` : 'Mobile Phone',
+        paymentMethod: 'cash',
+        rateMode: 'c_rate',
+      });
+    } else {
+      if (!isInitialMountRef.current) {
+        emitCartClear(1);
+      }
+    }
+
+    isInitialMountRef.current = false;
+  }, [items, isConnected, user, emitCartUpdate, emitCartClear]);
 
   const addToCart = (product: Product, quantity: number = 1): boolean => {
     if (product.stock <= 0) {
