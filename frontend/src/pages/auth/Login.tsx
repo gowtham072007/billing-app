@@ -120,7 +120,7 @@ export const Login: React.FC = () => {
                   required
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder={t('name_field_placeholder', 'Enter registered name')}
+                  placeholder={t('name_field_placeholder', 'Enter your name')}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:border-brand-500 outline-none placeholder:text-slate-400 placeholder:font-normal transition-colors"
                   autoFocus
                 />
