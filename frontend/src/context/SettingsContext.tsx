@@ -11,10 +11,10 @@ interface SettingsContextType {
 
 const defaultSettings: ShopSettings = {
   shop_name: 'வில்மணி ஸ்டோர்',
-  shop_address: 'No. 42, Bazaar Main Road, Near Bus Stand, Tamil Nadu - 600001',
-  shop_phone: '+91 98765 43210',
-  shop_email: 'contact@srikrishnastore.com',
-  shop_gstin: '33AAAAA0000A1Z5',
+  shop_address: 'முருகன் கோவில் தெரு ஸ்ரீவெங்கடேஸ்வரபுரம்',
+  shop_phone: '+91 94862 85112',
+  shop_email: 'contact@vilmanistore.com',
+  shop_gstin: '33CKNPA2440R1ZZ',
   receipt_footer: 'Thank You! Visit Again.',
   default_tax_rate: '0',
   currency_symbol: '₹',

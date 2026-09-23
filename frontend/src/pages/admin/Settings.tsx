@@ -10,10 +10,10 @@ export const Settings: React.FC = () => {
 
   const [formData, setFormData] = useState({
     shop_name: settings.shop_name || 'வில்மணி ஸ்டோர்',
-    shop_address: settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu - 600001',
-    shop_phone: settings.shop_phone || '+91 98765 43210',
+    shop_address: settings.shop_address || 'முருகன் கோவில் தெரு ஸ்ரீவெங்கடேஸ்வரபுரம்',
+    shop_phone: settings.shop_phone || '+91 94862 85112',
     shop_email: settings.shop_email || '',
-    shop_gstin: settings.shop_gstin || '',
+    shop_gstin: settings.shop_gstin || '33CKNPA2440R1ZZ',
     receipt_footer: settings.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.',
     default_tax_rate: settings.default_tax_rate || '0',
     currency_symbol: settings.currency_symbol || '₹',

@@ -16,9 +16,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   paperWidth = '100mm',
 }) => {
   const shopName = settings.shop_name || 'வில்மணி ஸ்டோர்';
-  const shopAddress = settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu';
-  const shopPhone = settings.shop_phone || '+91 98765 43210';
-  const shopGstin = settings.shop_gstin || '';
+  const shopAddress = settings.shop_address || 'முருகன் கோவில் தெரு ஸ்ரீவெங்கடேஸ்வரபுரம்';
+  const shopPhone = settings.shop_phone || '+91 94862 85112';
+  const shopGstin = settings.shop_gstin || '33CKNPA2440R1ZZ';
   const footerMessage = settings.receipt_footer || 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.';
 
   // Format Date and Time in Indian Standard Time (IST - Asia/Kolkata)
