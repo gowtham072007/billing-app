@@ -98,7 +98,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     const textReceipt = `
 ================================================
-${(settings?.shop_name || 'Vilmani Store').toUpperCase()}
+${(settings?.shop_name || 'வில்மணி ஸ்டோர்')}
 ${settings?.shop_address || ''}
 Ph: ${settings?.shop_phone || ''}
 ${settings?.shop_gstin ? `GSTIN: ${settings.shop_gstin}` : ''}

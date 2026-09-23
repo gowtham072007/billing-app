@@ -9,7 +9,7 @@ export const Settings: React.FC = () => {
   const { settings, updateSettings } = useSettings();
 
   const [formData, setFormData] = useState({
-    shop_name: settings.shop_name || 'VILMANI TRADERS',
+    shop_name: settings.shop_name || 'வில்மணி ஸ்டோர்',
     shop_address: settings.shop_address || 'No. 42, Bazaar Main Road, Tamil Nadu - 600001',
     shop_phone: settings.shop_phone || '+91 98765 43210',
     shop_email: settings.shop_email || '',

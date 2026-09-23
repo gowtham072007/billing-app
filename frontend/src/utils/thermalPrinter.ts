@@ -126,7 +126,7 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
 
   // Double height & width for shop name
   chunks.push(ESC, 0x21, 0x30);
-  const shopName = `${settings?.shop_name || 'VILMANI STORE'}\n`;
+  const shopName = `${settings?.shop_name || 'வில்மணி ஸ்டோர்'}\n`;
   chunks.push(...encoder.encode(shopName));
 
   // Normal text
