@@ -383,4 +383,237 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
   }
 });
 
+// PUT /api/bills/:id (Update Existing Bill & Atomic Stock Re-balance)
+router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const {
+      customer_id,
+      customer_name,
+      customer_phone,
+      items,
+      discount = 0,
+      discount_type = 'flat',
+      tax_percentage = 0,
+      payment_method = 'cash',
+      payment_reference,
+      deviceId,
+      sectionId
+    } = req.body;
+
+    const existingBill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+    if (!existingBill) {
+      return res.status(404).json({ error: 'Bill invoice not found.' });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Bill must contain at least one item.' });
+    }
+
+    // Atomic Database Transaction
+    const tx = db.transaction(() => {
+      // 1. Restore previous stock for this bill
+      const oldItems = db.prepare('SELECT product_id, quantity FROM bill_items WHERE bill_id = ?').all(id);
+      const restoreStockStmt = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
+      for (const oldItem of oldItems) {
+        restoreStockStmt.run(oldItem.quantity, oldItem.product_id);
+      }
+
+      // 2. Validate new items and check live stock
+      let subtotal = 0;
+      const validatedItems = [];
+
+      for (const item of items) {
+        const prod = db.prepare('SELECT id, name, name_tamil, sku, unit, selling_price, w_rate, c_rate, stock, status FROM products WHERE id = ?').get(item.product_id);
+        if (!prod) {
+          throw new Error(`Product ID #${item.product_id} not found.`);
+        }
+
+        const qty = Number(item.quantity);
+        if (isNaN(qty) || qty <= 0) {
+          throw new Error(`Please enter a valid quantity for "${prod.name}".`);
+        }
+
+        if (qty > prod.stock) {
+          throw new Error(`Insufficient stock for "${prod.name}". Available stock is ${prod.stock} ${prod.unit}, but bill requests ${qty} ${prod.unit}.`);
+        }
+
+        const rateType = item.rate_type === 'w_rate' ? 'w_rate' : 'c_rate';
+        const defaultPrice = rateType === 'w_rate' ? (prod.w_rate || prod.selling_price) : (prod.c_rate || prod.selling_price);
+        const price = item.price !== undefined ? Number(item.price) : defaultPrice;
+        const lineTotal = price * qty;
+        subtotal += lineTotal;
+
+        const resolvedTamilName = item.product_name_tamil || prod.name_tamil || prod.name;
+
+        validatedItems.push({
+          product_id: prod.id,
+          product_name: prod.name,
+          product_name_tamil: resolvedTamilName,
+          sku: prod.sku,
+          unit: prod.unit,
+          quantity: qty,
+          price,
+          rate_type: rateType,
+          total: lineTotal,
+          current_stock: prod.stock
+        });
+      }
+
+      // 3. Calculations
+      let discountAmount = 0;
+      if (discount_type === 'percentage') {
+        discountAmount = (subtotal * (Number(discount) || 0)) / 100;
+      } else {
+        discountAmount = Number(discount) || 0;
+      }
+      discountAmount = Math.min(discountAmount, subtotal);
+
+      const taxableAmount = Math.max(0, subtotal - discountAmount);
+      const taxRate = Number(tax_percentage) || 0;
+      const taxAmount = (taxableAmount * taxRate) / 100;
+      const grandTotal = Math.round(taxableAmount + taxAmount);
+
+      // 4. Update Bill record (keeps same bill_number & created_at)
+      db.prepare(`
+        UPDATE bills SET
+          customer_id = ?,
+          customer_name = ?,
+          customer_phone = ?,
+          subtotal = ?,
+          discount = ?,
+          discount_type = ?,
+          tax = ?,
+          tax_percentage = ?,
+          grand_total = ?,
+          payment_method = ?,
+          payment_reference = ?
+        WHERE id = ?
+      `).run(
+        customer_id || null,
+        customer_name ? customer_name.trim() : 'Walk-in Customer',
+        customer_phone ? customer_phone.trim() : null,
+        subtotal,
+        discountAmount,
+        discount_type,
+        taxAmount,
+        taxRate,
+        grandTotal,
+        payment_method,
+        payment_reference ? payment_reference.trim() : null,
+        id
+      );
+
+      // 5. Delete old items and insert updated items
+      db.prepare('DELETE FROM bill_items WHERE bill_id = ?').run(id);
+
+      const insertItemStmt = db.prepare(`
+        INSERT INTO bill_items (
+          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity, price, rate_type, total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const updateStockStmt = db.prepare(`
+        UPDATE products 
+        SET stock = stock - ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `);
+
+      const insertStockTxStmt = db.prepare(`
+        INSERT INTO stock_transactions (
+          product_id, product_name, transaction_type, quantity, previous_stock, new_stock, reference_id, notes, admin_name
+        ) VALUES (?, ?, 'BILL_UPDATE', ?, ?, ?, ?, ?, ?)
+      `);
+
+      for (const vi of validatedItems) {
+        insertItemStmt.run(
+          id,
+          vi.product_id,
+          vi.product_name,
+          vi.product_name_tamil,
+          vi.sku,
+          vi.unit,
+          vi.quantity,
+          vi.price,
+          vi.rate_type,
+          vi.total
+        );
+        updateStockStmt.run(vi.quantity, vi.product_id);
+
+        const newStock = vi.current_stock - vi.quantity;
+        insertStockTxStmt.run(
+          vi.product_id,
+          vi.product_name,
+          vi.quantity,
+          vi.current_stock,
+          newStock,
+          existingBill.bill_number,
+          `Updated POS Bill #${existingBill.bill_number}`,
+          req.user.name || 'Admin'
+        );
+      }
+
+      // Clear draft for section if applicable
+      if (sectionId) {
+        db.prepare('DELETE FROM pos_draft_bills WHERE section_id = ?').run(Number(sectionId));
+      }
+
+      return { billId: id, billNumber: existingBill.bill_number, grandTotal };
+    });
+
+    const result = tx();
+
+    const updatedBill = db.prepare('SELECT * FROM bills WHERE id = ?').get(result.billId);
+    const updatedItems = db.prepare(`
+      SELECT 
+        bi.id, bi.product_id, bi.product_name,
+        COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
+        bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+      FROM bill_items bi
+      LEFT JOIN products p ON p.id = bi.product_id
+      WHERE bi.bill_id = ?
+    `).all(result.billId);
+
+    const settingsRows = db.prepare('SELECT key, value FROM settings').all();
+    const settings = {};
+    settingsRows.forEach(row => { settings[row.key] = row.value; });
+
+    // Broadcast Real-Time Event
+    try {
+      const { broadcastBillCompleted } = require('../socket');
+      
+      const todayStats = db.prepare(`
+        SELECT 
+          COUNT(*) as today_bills_count,
+          COALESCE(SUM(grand_total), 0) as today_sales_amount
+        FROM bills
+        WHERE DATE(created_at) = DATE('now', 'localtime')
+      `).get();
+
+      broadcastBillCompleted({
+        bill: updatedBill,
+        items: updatedItems,
+        isUpdate: true,
+        cashierName: req.user.name || 'Admin',
+        deviceId: deviceId || null,
+        sectionId: sectionId ? Number(sectionId) : null,
+        today_sales: todayStats ? todayStats.today_sales_amount : 0,
+        today_bills: todayStats ? todayStats.today_bills_count : 0
+      });
+    } catch (wsErr) {
+      console.error('Failed to broadcast real-time bill update event:', wsErr);
+    }
+
+    res.json({
+      message: 'Bill updated successfully!',
+      bill: updatedBill,
+      items: updatedItems,
+      settings
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+

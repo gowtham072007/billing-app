@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Search,
@@ -10,6 +11,7 @@ import {
   RefreshCw,
   IndianRupee,
   Eye,
+  Pencil,
 } from 'lucide-react';
 import { Bill, BillItem } from '../../types';
 import { api } from '../../api/client';
@@ -18,6 +20,7 @@ import { ThermalReceiptModal } from '../../components/thermal/ThermalReceiptModa
 import { useSettings } from '../../context/SettingsContext';
 
 export const DailyBills: React.FC = () => {
+  const navigate = useNavigate();
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [paymentMethod, setPaymentMethod] = useState<string>('all');
@@ -279,6 +282,15 @@ export const DailyBills: React.FC = () => {
 
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => navigate(`/admin/billing?editBillId=${b.id}`)}
+                          className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Edit Bill in POS"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+
                         <button
                           onClick={() => handleViewAndPrint(b.id)}
                           className="px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"

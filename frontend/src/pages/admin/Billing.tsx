@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ProductSearchGrid } from '../../components/pos/ProductSearchGrid';
 import { BillCartTable, PosBillItem } from '../../components/pos/BillCartTable';
 import { BillSectionTabs, BillSectionData } from '../../components/pos/BillSectionTabs';
@@ -38,6 +39,11 @@ export const Billing: React.FC = () => {
 
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+
+  // Edit Bill State from URL Query Parameter
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editBillIdParam = searchParams.get('editBillId');
+  const [editingBill, setEditingBill] = useState<{ id: number; bill_number: string } | null>(null);
 
   // 10 Section Billing State
   const [sections, setSections] = useState<BillSectionData[]>(() =>
@@ -294,6 +300,89 @@ export const Billing: React.FC = () => {
     fetchProducts();
     fetchDrafts();
   }, []);
+
+  const loadBillToEdit = async (billId: string | number) => {
+    try {
+      const res = await api.get<{ bill: Bill; items: BillItem[]; settings: any }>(`/bills/${billId}`);
+      if (!res?.bill) return;
+
+      const loadedItems: PosBillItem[] = (res.items || []).map(it => {
+        const prod = productsRef.current.find(p => p.id === it.product_id);
+        const rateType = (it.rate_type as 'c_rate' | 'w_rate') || 'c_rate';
+        return {
+          product_id: it.product_id,
+          product_name: it.product_name,
+          product_name_tamil: it.product_name_tamil,
+          sku: it.sku || prod?.sku || '',
+          unit: it.unit || prod?.unit || 'pcs',
+          quantity: it.quantity,
+          price: it.price,
+          rate_type: rateType,
+          c_rate: prod?.c_rate || it.price,
+          w_rate: prod?.w_rate || it.price,
+          total: it.total,
+          available_stock: (prod ? prod.stock : 0) + it.quantity
+        };
+      });
+
+      const loadedCustomer: Customer | null = res.bill.customer_id
+        ? {
+            id: res.bill.customer_id,
+            name: res.bill.customer_name,
+            phone: res.bill.customer_phone || '',
+            created_at: '',
+            total_spent: 0,
+            total_orders: 0
+          }
+        : res.bill.customer_name && res.bill.customer_name !== 'Walk-in Customer'
+        ? {
+            id: 0,
+            name: res.bill.customer_name,
+            phone: res.bill.customer_phone || '',
+            created_at: '',
+            total_spent: 0,
+            total_orders: 0
+          }
+        : null;
+
+      updateActiveSection(s => ({
+        ...s,
+        items: loadedItems,
+        selectedCustomer: loadedCustomer,
+        discount: res.bill.discount || 0,
+        discountType: (res.bill.discount_type as 'flat' | 'percentage') || 'flat',
+        taxPercentage: res.bill.tax_percentage !== undefined ? res.bill.tax_percentage : (Number(settings.default_tax_rate) || 0),
+        paymentMethod: (res.bill.payment_method as any) || 'cash',
+        paymentReference: res.bill.payment_reference || '',
+        rateMode: loadedItems[0]?.rate_type || 'c_rate',
+      }));
+
+      setEditingBill({ id: res.bill.id, bill_number: res.bill.bill_number });
+      setBarcodeToast({ text: `Loaded Invoice #${res.bill.bill_number} for editing.` });
+      setTimeout(() => setBarcodeToast(null), 3000);
+    } catch (err: any) {
+      console.error('Failed to load bill for editing:', err);
+      alert(err.message || 'Failed to load bill for editing.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBill(null);
+    setSearchParams({});
+    setSections(prev =>
+      prev.map(s =>
+        s.id === activeSectionId
+          ? createEmptySection(activeSectionId, Number(settings.default_tax_rate) || 0)
+          : s
+      )
+    );
+  };
+
+  useEffect(() => {
+    if (editBillIdParam && products.length > 0) {
+      loadBillToEdit(editBillIdParam);
+    }
+  }, [editBillIdParam, products.length]);
 
   // Update default tax when settings load
   useEffect(() => {
@@ -561,12 +650,19 @@ export const Billing: React.FC = () => {
     );
   };
 
-  // Complete and Submit Bill for Active Section
+  // Complete and Submit Bill for Active Section (Supports New Bill & Edit/Update Existing Bill)
   const handleCompleteBill = async (printImmediate: boolean = false) => {
     if (activeSection.items.length === 0) {
       setBarcodeToast({ text: 'Please add at least one product to the bill.', isError: true });
       setTimeout(() => setBarcodeToast(null), 3500);
       return;
+    }
+
+    if (editingBill) {
+      const isConfirmed = window.confirm('Are you sure you want to update this bill?');
+      if (!isConfirmed) {
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -592,19 +688,28 @@ export const Billing: React.FC = () => {
         payment_reference: activeSection.paymentReference.trim() || undefined,
       };
 
-      const res = await api.post<{
-        message: string;
-        bill: Bill;
-        items: BillItem[];
-        settings: any;
-      }>('/bills', payload);
+      const res = editingBill
+        ? await api.put<{
+            message: string;
+            bill: Bill;
+            items: BillItem[];
+            settings: any;
+          }>(`/bills/${editingBill.id}`, payload)
+        : await api.post<{
+            message: string;
+            bill: Bill;
+            items: BillItem[];
+            settings: any;
+          }>('/bills', payload);
 
       posSounds.playBillComplete();
       setCompletedBill(res.bill);
       setCompletedBillItems(res.items);
       setIsReceiptModalOpen(true);
 
-      // Reset Active Section Form only
+      // Reset Edit Mode & Active Section Form
+      setEditingBill(null);
+      setSearchParams({});
       setSections(prev =>
         prev.map(s =>
           s.id === activeSectionId
@@ -775,6 +880,8 @@ export const Billing: React.FC = () => {
             paymentReference={activeSection.paymentReference}
             isSubmitting={isSubmitting}
             settings={settings}
+            editingBillNumber={editingBill?.bill_number || null}
+            onCancelEdit={handleCancelEdit}
             onRateModeChange={handleRateModeChange}
             onUpdateQuantity={handleUpdateQuantity}
             onToggleItemRate={handleToggleItemRate}

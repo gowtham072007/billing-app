@@ -19,6 +19,7 @@ import {
   Sparkles,
   Eye,
   EyeOff,
+  Pencil,
 } from 'lucide-react';
 import { Customer, BillItem, ShopSettings, Product } from '../../types';
 import {
@@ -237,6 +238,8 @@ interface BillCartTableProps {
   paymentReference: string;
   isSubmitting: boolean;
   settings?: Partial<ShopSettings>;
+  editingBillNumber?: string | null;
+  onCancelEdit?: () => void;
   onRateModeChange: (mode: 'c_rate' | 'w_rate') => void;
   onUpdateQuantity: (productId: number, qty: number) => void;
   onToggleItemRate: (productId: number) => void;
@@ -264,6 +267,8 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
   paymentReference,
   isSubmitting,
   settings,
+  editingBillNumber,
+  onCancelEdit,
   onRateModeChange,
   onUpdateQuantity,
   onToggleItemRate,
@@ -316,6 +321,30 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full overflow-hidden">
+      {/* Edit Mode Active Banner */}
+      {editingBillNumber && (
+        <div className="bg-amber-500 text-white px-3.5 py-2 flex items-center justify-between text-xs font-bold shrink-0 border-b border-amber-600/20 shadow-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="p-1 bg-white/20 rounded-lg">
+              <Pencil className="w-3.5 h-3.5 text-white" />
+            </span>
+            <span className="truncate">
+              Editing Invoice: <span className="font-mono underline">{editingBillNumber}</span>
+            </span>
+          </div>
+          {onCancelEdit && (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer"
+              title="Cancel Edit & Start New Bill"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Header: Customer Info, Rate Mode Switcher & Action Buttons */}
       <div className="p-3.5 border-b border-slate-100 bg-slate-50/70 flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-2">
@@ -613,10 +642,10 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
               disabled={items.length === 0 || isSubmitting}
               onClick={() => onCompleteBill(false)}
               className="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
-              title="Complete Sale without opening Print Preview [F8]"
+              title={editingBillNumber ? "Save & Update Bill without Print Preview [F8]" : "Complete Sale without opening Print Preview [F8]"}
             >
               <CheckCircle className="w-4 h-4 text-emerald-400" />
-              <span>Complete (F8)</span>
+              <span>{editingBillNumber ? 'Update Bill (F8)' : 'Complete (F8)'}</span>
             </button>
 
             <button
@@ -624,10 +653,10 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
               disabled={items.length === 0 || isSubmitting}
               onClick={() => onCompleteBill(true)}
               className="py-3 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-brand-600/25 transition-all active:scale-[0.98] cursor-pointer"
-              title="Complete Sale & Open 4-inch Thermal Receipt Print [F9]"
+              title={editingBillNumber ? "Save & Update Bill and Open Thermal Receipt Print [F9]" : "Complete Sale & Open 4-inch Thermal Receipt Print [F9]"}
             >
               <Printer className="w-4 h-4" />
-              <span>Complete & Print (F9)</span>
+              <span>{editingBillNumber ? 'Update & Print (F9)' : 'Complete & Print (F9)'}</span>
             </button>
           </div>
         </div>

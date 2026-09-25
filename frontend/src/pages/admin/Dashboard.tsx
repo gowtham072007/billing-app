@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Clock,
   CheckCircle2,
+  Pencil,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -59,13 +60,18 @@ export const Dashboard: React.FC = () => {
     if (!socket) return;
 
     const handleBillCompleted = (event: BillCompletedEvent) => {
+      if ((event as any)?.isUpdate) {
+        fetchStats();
+        return;
+      }
+
       setData(prev => {
         if (!prev) return prev;
 
         const newBill = event.bill;
         const exists = prev.recent_bills.some(b => b.id === newBill.id || b.bill_number === newBill.bill_number);
         const updatedRecentBills = exists
-          ? prev.recent_bills
+          ? prev.recent_bills.map(b => (b.id === newBill.id || b.bill_number === newBill.bill_number ? newBill : b))
           : [newBill, ...prev.recent_bills.slice(0, 4)];
 
         // Update payment breakdown chart
@@ -355,14 +361,23 @@ export const Dashboard: React.FC = () => {
                     <p className="text-xs text-slate-500 mt-0.5">{b.customer_name || 'Walk-in'}</p>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-slate-900">₹{b.grand_total}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-sm font-bold text-slate-900 mr-1">₹{b.grand_total}</span>
+                    <button
+                      onClick={() => navigate(`/admin/billing?editBillId=${b.id}`)}
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-600 transition-colors cursor-pointer"
+                      title="Edit Bill in POS"
+                      aria-label="Edit Bill"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       onClick={() => handleViewBill(b.id)}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-600 transition-colors"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-600 transition-colors cursor-pointer"
                       title="Reprint Thermal Receipt"
+                      aria-label="Reprint Thermal Receipt"
                     >
-                      <Printer className="w-4 h-4" />
+                      <Printer className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
