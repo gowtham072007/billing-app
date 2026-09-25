@@ -17,6 +17,8 @@ import {
   Tag,
   ChevronDown,
   Sparkles,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Customer, BillItem, ShopSettings, Product } from '../../types';
 import {
@@ -292,6 +294,26 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
   const taxAmount = (taxableAmount * (taxPercentage || 0)) / 100;
   const grandTotal = Math.round(taxableAmount + taxAmount);
 
+  // Payment & summary section visibility toggle (persisted in sessionStorage during current POS session)
+  const [isPaymentVisible, setIsPaymentVisible] = useState<boolean>(() => {
+    try {
+      const saved = sessionStorage.getItem('pos_payment_section_visible');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const togglePaymentVisibility = () => {
+    setIsPaymentVisible(prev => {
+      const next = !prev;
+      try {
+        sessionStorage.setItem('pos_payment_section_visible', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-full overflow-hidden">
       {/* Top Header: Customer Info, Rate Mode Switcher & Action Buttons */}
@@ -446,150 +468,196 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
         )}
       </div>
 
-      {/* Bill Calculations & Payment Options Panel */}
-      <div className="border-t border-slate-200 bg-slate-50/80 p-4 space-y-3 shrink-0">
-        {/* Discount & Tax Inline Controls */}
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {/* Discount Field */}
-          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
-            <span className="text-slate-400 font-semibold text-[11px]">Disc:</span>
-            <input
-              type="number"
-              min="0"
-              value={discount || ''}
-              onChange={e => onDiscountChange(parseFloat(e.target.value) || 0)}
-              placeholder="0"
-              className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent"
-            />
+      {/* Bill Calculations & Payment Options Panel (Collapsible) */}
+      {isPaymentVisible ? (
+        <div className="border-t border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 space-y-3 shrink-0">
+          {/* Top Bar: Section Title & Hide Toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Receipt className="w-3.5 h-3.5 text-brand-600" />
+              <span>Payment & Summary</span>
+            </span>
             <button
-              onClick={() => onDiscountTypeChange(discountType === 'flat' ? 'percentage' : 'flat')}
-              className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-700 uppercase"
+              type="button"
+              onClick={togglePaymentVisibility}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 shadow-xs transition-colors cursor-pointer"
+              title="Hide Payment & Summary Section"
+              aria-label="Hide Payment & Summary Section"
             >
-              {discountType === 'flat' ? '₹' : '%'}
+              <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+              <span>Hide</span>
             </button>
           </div>
 
-          {/* Tax % Selector */}
-          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
-            <span className="text-slate-400 font-semibold text-[11px]">Tax:</span>
-            <select
-              value={taxPercentage}
-              onChange={e => onTaxPercentageChange(Number(e.target.value))}
-              className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
-            >
-              <option value="0">0% (None)</option>
-              <option value="5">5% (GST)</option>
-              <option value="12">12% (GST)</option>
-              <option value="18">18% (GST)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Subtotal & Grand Total Breakdown */}
-        <div className="space-y-1 text-xs text-slate-600">
-          <div className="flex justify-between">
-            <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items):</span>
-            <span className="font-mono font-semibold">₹{subtotal.toFixed(2)}</span>
-          </div>
-
-          {discountAmount > 0 && (
-            <div className="flex justify-between text-emerald-600 font-medium">
-              <span>Discount applied:</span>
-              <span className="font-mono">- ₹{discountAmount.toFixed(2)}</span>
-            </div>
-          )}
-
-          {taxAmount > 0 && (
-            <div className="flex justify-between text-slate-600 font-medium">
-              <span>Tax ({taxPercentage}%):</span>
-              <span className="font-mono">+ ₹{taxAmount.toFixed(2)}</span>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-slate-900">
-            <span className="text-sm font-extrabold uppercase tracking-wide">Grand Total:</span>
-            <span className="text-2xl font-black font-mono text-emerald-700">
-              ₹{grandTotal.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Payment Method Selector */}
-        <div className="space-y-1.5 pt-1">
-          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-            Payment Mode
-          </label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { id: 'cash', label: 'Cash', icon: Banknote },
-              { id: 'upi', label: 'UPI', icon: Smartphone },
-              { id: 'card', label: 'Card', icon: CreditCard },
-              { id: 'other', label: 'Other', icon: CheckCircle },
-            ].map(pm => {
-              const Icon = pm.icon;
-              const isSelected = paymentMethod === pm.id;
-              return (
-                <button
-                  key={pm.id}
-                  type="button"
-                  onClick={() => onPaymentMethodChange(pm.id as any)}
-                  className={`py-2 px-1.5 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all ${
-                    isSelected
-                      ? 'bg-slate-900 text-white shadow-md'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{pm.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* UPI Quick QR Trigger if UPI selected */}
-          {paymentMethod === 'upi' && (
-            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-xs">
-              <span className="text-emerald-800 font-semibold flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5" />
-                Scan to pay ₹{grandTotal}
-              </span>
+          {/* Discount & Tax Inline Controls */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {/* Discount Field */}
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+              <span className="text-slate-400 font-semibold text-[11px]">Disc:</span>
+              <input
+                type="number"
+                min="0"
+                value={discount || ''}
+                onChange={e => onDiscountChange(parseFloat(e.target.value) || 0)}
+                placeholder="0"
+                className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent"
+              />
               <button
-                type="button"
-                onClick={onOpenUpiQr}
-                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 shadow-sm transition-colors"
+                onClick={() => onDiscountTypeChange(discountType === 'flat' ? 'percentage' : 'flat')}
+                className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-700 uppercase"
               >
-                <QrCode className="w-3.5 h-3.5" />
-                <span>Show QR Code</span>
+                {discountType === 'flat' ? '₹' : '%'}
               </button>
             </div>
-          )}
-        </div>
 
-        {/* Main Action Buttons */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
+            {/* Tax % Selector */}
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+              <span className="text-slate-400 font-semibold text-[11px]">Tax:</span>
+              <select
+                value={taxPercentage}
+                onChange={e => onTaxPercentageChange(Number(e.target.value))}
+                className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
+              >
+                <option value="0">0% (None)</option>
+                <option value="5">5% (GST)</option>
+                <option value="12">12% (GST)</option>
+                <option value="18">18% (GST)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Subtotal & Grand Total Breakdown */}
+          <div className="space-y-1 text-xs text-slate-600">
+            <div className="flex justify-between">
+              <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items):</span>
+              <span className="font-mono font-semibold">₹{subtotal.toFixed(2)}</span>
+            </div>
+
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-emerald-600 font-medium">
+                <span>Discount applied:</span>
+                <span className="font-mono">- ₹{discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {taxAmount > 0 && (
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Tax ({taxPercentage}%):</span>
+                <span className="font-mono">+ ₹{taxAmount.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-slate-900">
+              <span className="text-sm font-extrabold uppercase tracking-wide">Grand Total:</span>
+              <span className="text-2xl font-black font-mono text-emerald-700">
+                ₹{grandTotal.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Payment Method Selector */}
+          <div className="space-y-1.5 pt-1">
+            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+              Payment Mode
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { id: 'cash', label: 'Cash', icon: Banknote },
+                { id: 'upi', label: 'UPI', icon: Smartphone },
+                { id: 'card', label: 'Card', icon: CreditCard },
+                { id: 'other', label: 'Other', icon: CheckCircle },
+              ].map(pm => {
+                const Icon = pm.icon;
+                const isSelected = paymentMethod === pm.id;
+                return (
+                  <button
+                    key={pm.id}
+                    type="button"
+                    onClick={() => onPaymentMethodChange(pm.id as any)}
+                    className={`py-2 px-1.5 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all ${
+                      isSelected
+                        ? 'bg-slate-900 text-white shadow-md'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{pm.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* UPI Quick QR Trigger if UPI selected */}
+            {paymentMethod === 'upi' && (
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-xs">
+                <span className="text-emerald-800 font-semibold flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  Scan to pay ₹{grandTotal}
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenUpiQr}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 shadow-sm transition-colors"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Show QR Code</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Main Action Buttons */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              disabled={items.length === 0 || isSubmitting}
+              onClick={() => onCompleteBill(false)}
+              className="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
+              title="Complete Sale without opening Print Preview [F8]"
+            >
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <span>Complete (F8)</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={items.length === 0 || isSubmitting}
+              onClick={() => onCompleteBill(true)}
+              className="py-3 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-brand-600/25 transition-all active:scale-[0.98] cursor-pointer"
+              title="Complete Sale & Open 4-inch Thermal Receipt Print [F9]"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Complete & Print (F9)</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Collapsed Summary Bar when Hidden */
+        <div className="border-t border-slate-200 bg-slate-50/90 px-4 py-3 shrink-0 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">
+              Grand Total:
+            </span>
+            <span className="text-xl font-black font-mono text-emerald-700 truncate">
+              ₹{grandTotal.toFixed(2)}
+            </span>
+            <span className="text-[11px] text-slate-400 font-medium shrink-0">
+              ({items.reduce((s, i) => s + i.quantity, 0)} {items.reduce((s, i) => s + i.quantity, 0) === 1 ? 'item' : 'items'})
+            </span>
+          </div>
+
           <button
             type="button"
-            disabled={items.length === 0 || isSubmitting}
-            onClick={() => onCompleteBill(false)}
-            className="py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
-            title="Complete Sale without opening Print Preview [F8]"
+            onClick={togglePaymentVisibility}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-700 hover:text-brand-800 bg-white hover:bg-brand-50/60 rounded-xl border border-brand-200 shadow-xs transition-all cursor-pointer shrink-0"
+            title="Show Payment & Billing Section"
+            aria-label="Show Payment & Billing Section"
           >
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-            <span>Complete (F8)</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={items.length === 0 || isSubmitting}
-            onClick={() => onCompleteBill(true)}
-            className="py-3 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-brand-600/25 transition-all active:scale-[0.98] cursor-pointer"
-            title="Complete Sale & Open 4-inch Thermal Receipt Print [F9]"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Complete & Print (F9)</span>
+            <Eye className="w-4 h-4 text-brand-600" />
+            <span>Show</span>
           </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };
