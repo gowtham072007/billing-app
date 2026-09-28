@@ -217,7 +217,29 @@ export function getQtyPresets(unit?: string): Array<{ label: string; value: numb
 /**
  * Returns default step increment for stepper buttons
  */
-export function getStepIncrement(unit?: string, isShiftKey = false): number {
+/**
+ * Returns default step increment for stepper buttons
+ */
+export function getStepIncrement(
+  unit?: string,
+  isShiftKey = false,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number
+): number {
+  if (quantityFormat === 'integer') {
+    return isShiftKey ? 5 : 1;
+  }
+  if (quantityFormat === 'decimal') {
+    const dp = Math.max(1, Math.min(4, Number(decimalPlaces) || 2));
+    if (isShiftKey) {
+      return dp >= 2 ? 1 : 0.5;
+    }
+    if (dp === 1) return 0.5;
+    if (dp === 2) return 0.25;
+    if (dp === 3) return 0.25;
+    return 0.1;
+  }
+
   const isDec = isDecimalUnit(unit);
   if (isShiftKey) {
     return isDec ? 0.1 : 5;
@@ -231,52 +253,161 @@ export function getStepIncrement(unit?: string, isShiftKey = false): number {
  */
 export function formatQtyNumber(quantity: number): string {
   if (typeof quantity !== 'number' || isNaN(quantity)) return '0';
-  // Round to max 3 decimal places to remove floating noise
-  const rounded = Math.round(quantity * 1000) / 1000;
-  return Number(rounded.toFixed(3)).toString();
+  // Round to max 4 decimal places to remove floating noise
+  const rounded = Math.round(quantity * 10000) / 10000;
+  return Number(rounded.toFixed(4)).toString();
 }
 
 /**
- * Formats quantity with unit suffix e.g., "1.5 kg", "2 pcs", "0.25 L"
+ * Formats a quantity value according to the product's Quantity Format setting:
+ * - Integer ('integer'): whole numbers e.g. "1", "2", "10" (never "1.00").
+ * - Decimal ('decimal'): exact fixed decimal places according to decimalPlaces (e.g. 1 -> "1.5", 2 -> "1.50", 3 -> "1.500", 4 -> "1.5000").
+ * - Fallback (if not explicitly specified): if unit is decimal or value has fraction, format with decimalPlaces (default 3), otherwise integer.
  */
-export function formatQtyWithUnit(quantity: number, unit?: string): string {
-  const numStr = formatQtyNumber(quantity);
-  const u = (unit || 'pcs').trim();
-  return `${numStr} ${u}`;
-}
-
-/**
- * Formats quantity specifically for printed bills:
- * - Piece-based / discrete count units (pcs, piece, box, packet, nos, etc.) print as an INTEGER (e.g. 1, 2, 5, 12).
- * - Weight / volume / length units (kg, g, L, ml, meter, etc.) or fractional amounts print with 3 decimal points (e.g. 0.500, 1.250, 0.250).
- */
-export function formatPrintBillQty(quantity: number, unit?: string): string {
+export function formatProductQty(
+  quantity: number,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number,
+  unit?: string
+): string {
   const q = typeof quantity === 'number' && !isNaN(quantity) ? quantity : 0;
-  const isDec = isDecimalUnit(unit);
 
-  if (isDec || q % 1 !== 0) {
-    return q.toFixed(3);
+  if (quantityFormat === 'integer') {
+    return String(Math.round(q));
+  }
+
+  if (quantityFormat === 'decimal') {
+    const dp = Math.max(1, Math.min(4, Number(decimalPlaces) || 2));
+    return q.toFixed(dp);
+  }
+
+  // Fallback if quantity_format is undefined or not set
+  if (isDecimalUnit(unit) || q % 1 !== 0) {
+    const dp = Math.max(1, Math.min(4, Number(decimalPlaces) || (isDecimalUnit(unit) ? 3 : 2)));
+    return q.toFixed(dp);
   }
 
   return String(Math.round(q));
 }
 
 /**
- * Formats quantity with product unit for bill receipts e.g. "1 pcs", "0.500 kg", "1.250 L"
+ * Formats quantity with unit suffix e.g., "1.50 kg", "2 pcs", "0.250 L"
  */
-export function formatPrintBillQtyWithUnit(quantity: number, unit?: string): string {
-  const qtyStr = formatPrintBillQty(quantity, unit);
+export function formatQtyWithUnit(
+  quantity: number,
+  unit?: string,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number
+): string {
+  const numStr = formatProductQty(quantity, quantityFormat, decimalPlaces, unit);
+  const u = (unit || 'pcs').trim();
+  return `${numStr} ${u}`;
+}
+
+/**
+ * Formats quantity specifically for printed bills:
+ * - Uses product's quantity_format and decimal_places setting.
+ * - Integer product: 1, 2, 10
+ * - Decimal product: 1.5 (1 dp), 1.50 (2 dp), 1.500 (3 dp), 1.5000 (4 dp)
+ */
+export function formatPrintBillQty(
+  quantity: number,
+  unit?: string,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number
+): string {
+  return formatProductQty(quantity, quantityFormat, decimalPlaces, unit);
+}
+
+/**
+ * Formats quantity with product unit for bill receipts e.g. "1 pcs", "0.50 kg", "1.500 L"
+ */
+export function formatPrintBillQtyWithUnit(
+  quantity: number,
+  unit?: string,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number
+): string {
+  const qtyStr = formatPrintBillQty(quantity, unit, quantityFormat, decimalPlaces);
   const u = (unit || 'pcs').trim();
   return `${qtyStr} ${u}`;
 }
 
 /**
- * Formats quantity with Tamil product unit for bill receipts e.g. "1 பீஸ்", "0.500 கிலோ", "1.250 லிட்டர்"
+ * Formats quantity with Tamil product unit for bill receipts e.g. "1 பீஸ்", "0.50 கிலோ", "1.500 லிட்டர்"
  */
-export function formatPrintBillQtyWithTamilUnit(quantity: number, unit?: string): string {
-  const qtyStr = formatPrintBillQty(quantity, unit);
+export function formatPrintBillQtyWithTamilUnit(
+  quantity: number,
+  unit?: string,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number
+): string {
+  const qtyStr = formatPrintBillQty(quantity, unit, quantityFormat, decimalPlaces);
   const u = getTamilUnit(unit);
   return `${qtyStr} ${u}`;
+}
+
+/**
+ * Validates and sanitizes a user-entered quantity string based on the product's Quantity Format:
+ * - Integer product: Must not contain decimal points and must be an integer > 0.
+ * - Decimal product: Allows typing decimals (e.g. 0.5, 1.25, 2.750) up to the allowed decimal-place limit (1..4).
+ */
+export function validateProductQtyInput(
+  rawVal: string | number,
+  quantityFormat?: 'integer' | 'decimal' | string,
+  decimalPlaces?: number
+): { valid: boolean; error?: string; parsedQty: number; formattedVal: string } {
+  const str = String(rawVal).trim();
+  if (!str) {
+    return { valid: false, error: 'Quantity is required.', parsedQty: 0, formattedVal: '0' };
+  }
+
+  const parsed = parseFloat(str);
+  if (isNaN(parsed) || parsed <= 0) {
+    return { valid: false, error: 'Please enter a valid positive quantity.', parsedQty: 0, formattedVal: '0' };
+  }
+
+  const isIntFormat = quantityFormat === 'integer';
+  const maxDec = isIntFormat ? 0 : Math.max(1, Math.min(4, Number(decimalPlaces) || 2));
+
+  if (isIntFormat) {
+    if (str.includes('.') || parsed % 1 !== 0) {
+      const rounded = Math.round(parsed);
+      return {
+        valid: false,
+        error: 'Whole numbers (integers) only for this product.',
+        parsedQty: rounded,
+        formattedVal: String(rounded),
+      };
+    }
+    return {
+      valid: true,
+      parsedQty: Math.round(parsed),
+      formattedVal: String(Math.round(parsed)),
+    };
+  }
+
+  // Decimal product validation
+  if (str.includes('.')) {
+    const parts = str.split('.');
+    const decimalPart = parts[1] || '';
+    if (decimalPart.length > maxDec) {
+      const factor = Math.pow(10, maxDec);
+      const clamped = Math.round(parsed * factor) / factor;
+      return {
+        valid: false,
+        error: `Maximum ${maxDec} decimal ${maxDec === 1 ? 'place' : 'places'} allowed for this product.`,
+        parsedQty: clamped,
+        formattedVal: clamped.toFixed(maxDec),
+      };
+    }
+  }
+
+  return {
+    valid: true,
+    parsedQty: parsed,
+    formattedVal: str,
+  };
 }
 
 /**

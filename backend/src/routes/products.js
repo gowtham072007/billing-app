@@ -12,7 +12,7 @@ router.get('/', (req, res, next) => {
     let query = `
       SELECT 
         id, name, name_tamil, category, sku, barcode, purchase_price, selling_price,
-        w_rate, c_rate, stock, minimum_stock, unit, image, status,
+        w_rate, c_rate, stock, minimum_stock, unit, quantity_format, decimal_places, image, status,
         created_at, updated_at,
         CASE 
           WHEN stock <= 0 THEN 'out_of_stock'
@@ -82,7 +82,7 @@ router.get('/lookup/:code', (req, res, next) => {
     const product = db.prepare(`
       SELECT 
         id, name, name_tamil, category, sku, barcode, purchase_price, selling_price,
-        w_rate, c_rate, stock, minimum_stock, unit, image, status,
+        w_rate, c_rate, stock, minimum_stock, unit, quantity_format, decimal_places, image, status,
         CASE 
           WHEN stock <= 0 THEN 'out_of_stock'
           WHEN stock <= minimum_stock THEN 'low_stock'
@@ -115,7 +115,7 @@ router.get('/:id', (req, res, next) => {
     const product = db.prepare(`
       SELECT 
         id, name, name_tamil, category, sku, barcode, purchase_price, selling_price,
-        w_rate, c_rate, stock, minimum_stock, unit, image, status,
+        w_rate, c_rate, stock, minimum_stock, unit, quantity_format, decimal_places, image, status,
         created_at, updated_at
       FROM products
       WHERE id = ?
@@ -142,7 +142,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
   try {
     const {
       name, name_tamil, category, sku, barcode, purchase_price, selling_price,
-      w_rate, c_rate, stock, minimum_stock, unit, image, status
+      w_rate, c_rate, stock, minimum_stock, unit, quantity_format, decimal_places, image, status
     } = req.body;
 
     if (!name || !sku) {
@@ -160,6 +160,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
     const currentStock = Number(stock) || 0;
     const minStock = Number(minimum_stock) || 5;
     const costPrice = Number(purchase_price) || 0;
+    const qtyFormat = quantity_format === 'decimal' ? 'decimal' : 'integer';
+    const decPlaces = Number(decimal_places) >= 1 && Number(decimal_places) <= 4 ? Number(decimal_places) : 2;
     
     // Calculate customer rate (C-Rate) and wholesale rate (W-Rate)
     const customerRate = c_rate !== undefined && c_rate !== '' ? Number(c_rate) : (selling_price !== undefined ? Number(selling_price) : 0);
@@ -170,8 +172,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
       const stmt = db.prepare(`
         INSERT INTO products (
           name, name_tamil, category, sku, barcode, purchase_price, selling_price,
-          w_rate, c_rate, stock, minimum_stock, unit, image, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          w_rate, c_rate, stock, minimum_stock, unit, quantity_format, decimal_places, image, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const result = stmt.run(
@@ -187,6 +189,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
         currentStock,
         minStock,
         unit ? unit.trim() : 'pcs',
+        qtyFormat,
+        decPlaces,
         image ? image.trim() : null,
         status || 'active'
       );
@@ -222,7 +226,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
     const id = req.params.id;
     const {
       name, name_tamil, category, sku, barcode, purchase_price, selling_price,
-      w_rate, c_rate, stock, minimum_stock, unit, image, status
+      w_rate, c_rate, stock, minimum_stock, unit, quantity_format, decimal_places, image, status
     } = req.body;
 
     const existingProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
@@ -251,6 +255,13 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
       ? Number(w_rate)
       : (existingProduct.w_rate > 0 ? existingProduct.w_rate : customerRate);
 
+    const qtyFormat = quantity_format !== undefined
+      ? (quantity_format === 'decimal' ? 'decimal' : 'integer')
+      : (existingProduct.quantity_format || 'integer');
+    const decPlaces = decimal_places !== undefined
+      ? (Number(decimal_places) >= 1 && Number(decimal_places) <= 4 ? Number(decimal_places) : 2)
+      : (existingProduct.decimal_places || 2);
+
     const tx = db.transaction(() => {
       db.prepare(`
         UPDATE products SET
@@ -266,6 +277,8 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
           stock = ?,
           minimum_stock = ?,
           unit = ?,
+          quantity_format = ?,
+          decimal_places = ?,
           image = ?,
           status = ?,
           updated_at = CURRENT_TIMESTAMP
@@ -283,6 +296,8 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
         newStock,
         minimum_stock !== undefined ? Number(minimum_stock) : existingProduct.minimum_stock,
         unit ? unit.trim() : existingProduct.unit,
+        qtyFormat,
+        decPlaces,
         image !== undefined ? (image ? image.trim() : null) : existingProduct.image,
         status || existingProduct.status,
         id

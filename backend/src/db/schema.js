@@ -39,6 +39,8 @@ function initSchema() {
       stock REAL NOT NULL DEFAULT 0,
       minimum_stock REAL NOT NULL DEFAULT 5,
       unit TEXT NOT NULL DEFAULT 'pcs',
+      quantity_format TEXT NOT NULL DEFAULT 'integer',
+      decimal_places INTEGER NOT NULL DEFAULT 2,
       image TEXT,
       status TEXT CHECK(status IN ('active', 'inactive')) NOT NULL DEFAULT 'active',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -70,6 +72,8 @@ function initSchema() {
       product_name_tamil TEXT,
       quantity REAL NOT NULL,
       unit TEXT NOT NULL DEFAULT 'pcs',
+      quantity_format TEXT NOT NULL DEFAULT 'integer',
+      decimal_places INTEGER NOT NULL DEFAULT 2,
       price REAL NOT NULL,
       rate_type TEXT DEFAULT 'c_rate',
       total REAL NOT NULL,
@@ -105,6 +109,8 @@ function initSchema() {
       product_name_tamil TEXT,
       sku TEXT,
       unit TEXT NOT NULL DEFAULT 'pcs',
+      quantity_format TEXT NOT NULL DEFAULT 'integer',
+      decimal_places INTEGER NOT NULL DEFAULT 2,
       quantity REAL NOT NULL,
       price REAL NOT NULL,
       rate_type TEXT DEFAULT 'c_rate',
@@ -165,12 +171,18 @@ function initSchema() {
   try { db.exec('ALTER TABLE products ADD COLUMN w_rate REAL NOT NULL DEFAULT 0.0;'); } catch (e) {}
   try { db.exec('ALTER TABLE products ADD COLUMN c_rate REAL NOT NULL DEFAULT 0.0;'); } catch (e) {}
   try { db.exec('ALTER TABLE products ADD COLUMN name_tamil TEXT;'); } catch (e) {}
+  try { db.exec("ALTER TABLE products ADD COLUMN quantity_format TEXT NOT NULL DEFAULT 'integer';"); } catch (e) {}
+  try { db.exec('ALTER TABLE products ADD COLUMN decimal_places INTEGER NOT NULL DEFAULT 2;'); } catch (e) {}
   try { db.exec('ALTER TABLE bill_items ADD COLUMN rate_type TEXT DEFAULT "c_rate";'); } catch (e) {}
   try { db.exec('ALTER TABLE bill_items ADD COLUMN product_name_tamil TEXT;'); } catch (e) {}
+  try { db.exec("ALTER TABLE bill_items ADD COLUMN quantity_format TEXT NOT NULL DEFAULT 'integer';"); } catch (e) {}
+  try { db.exec('ALTER TABLE bill_items ADD COLUMN decimal_places INTEGER NOT NULL DEFAULT 2;'); } catch (e) {}
   try { db.exec('ALTER TABLE order_items ADD COLUMN rate_type TEXT DEFAULT "c_rate";'); } catch (e) {}
   try { db.exec('ALTER TABLE order_items ADD COLUMN product_name_tamil TEXT;'); } catch (e) {}
+  try { db.exec("ALTER TABLE order_items ADD COLUMN quantity_format TEXT NOT NULL DEFAULT 'integer';"); } catch (e) {}
+  try { db.exec('ALTER TABLE order_items ADD COLUMN decimal_places INTEGER NOT NULL DEFAULT 2;'); } catch (e) {}
 
-  console.log('Database schema initialized with Tamil Name, W-Rate and C-Rate support.');
+  console.log('Database schema initialized with Quantity Format, Decimal Places, Tamil Name, W-Rate and C-Rate support.');
 }
 
 module.exports = { initSchema };

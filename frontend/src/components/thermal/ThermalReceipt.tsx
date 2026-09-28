@@ -266,7 +266,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     style={{ width: '16%', padding: '3px 2px', fontSize: '10.5px' }}
                   >
                     <span className="font-bold block">
-                      {formatPrintBillQty(item.quantity, item.unit)}
+                      {formatPrintBillQty(item.quantity, item.unit, item.quantity_format, item.decimal_places)}
                     </span>
                     <span
                       className="text-neutral-900 font-bold block"

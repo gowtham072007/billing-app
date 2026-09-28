@@ -27,7 +27,9 @@ import {
   getQtyPresets,
   getStepIncrement,
   formatQtyNumber,
+  formatProductQty,
   formatQtyWithUnit,
+  validateProductQtyInput,
   parseQtyInput,
 } from '../../utils/qtyHelper';
 
@@ -37,6 +39,8 @@ export interface PosBillItem {
   product_name_tamil?: string | null;
   sku: string;
   unit: string;
+  quantity_format?: 'integer' | 'decimal';
+  decimal_places?: number;
   quantity: number;
   price: number;
   rate_type?: 'c_rate' | 'w_rate';
@@ -52,13 +56,18 @@ const QtyControlCell: React.FC<{
   onUpdateQuantity: (productId: number, qty: number) => void;
 }> = ({ item, onUpdateQuantity }) => {
   const [isPresetsOpen, setIsPresetsOpen] = useState(false);
-  const [localVal, setLocalVal] = useState<string>(formatQtyNumber(item.quantity));
+  const [localVal, setLocalVal] = useState<string>(() =>
+    formatProductQty(item.quantity, item.quantity_format, item.decimal_places, item.unit)
+  );
+  const [isFocused, setIsFocused] = useState<boolean>(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Sync with item.quantity if changed externally
+  // Sync with item.quantity if changed externally and not currently typing/focused
   useEffect(() => {
-    setLocalVal(formatQtyNumber(item.quantity));
-  }, [item.quantity]);
+    if (!isFocused) {
+      setLocalVal(formatProductQty(item.quantity, item.quantity_format, item.decimal_places, item.unit));
+    }
+  }, [item.quantity, item.quantity_format, item.decimal_places, item.unit, isFocused]);
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -76,43 +85,62 @@ const QtyControlCell: React.FC<{
   }, [isPresetsOpen]);
 
   const presets = getQtyPresets(item.unit);
-  const isDecimal = isDecimalUnit(item.unit);
+  const isInteger = item.quantity_format === 'integer';
+  const isDecimal = item.quantity_format === 'decimal' || (!item.quantity_format && isDecimalUnit(item.unit));
+  const maxDecimals = item.decimal_places || (isDecimalUnit(item.unit) ? 3 : 2);
 
   const handleStep = (direction: 'up' | 'down', e: React.MouseEvent) => {
-    const step = getStepIncrement(item.unit, e.shiftKey);
+    const step = getStepIncrement(item.unit, e.shiftKey, item.quantity_format, item.decimal_places);
     const newQty = direction === 'up' ? item.quantity + step : item.quantity - step;
-    const safeQty = Math.max(0, Math.round(newQty * 1000) / 1000);
+    let safeQty = Math.max(0, newQty);
+    if (isInteger) {
+      safeQty = Math.round(safeQty);
+    } else {
+      const factor = Math.pow(10, maxDecimals);
+      safeQty = Math.round(safeQty * factor) / factor;
+    }
     onUpdateQuantity(item.product_id, safeQty);
+    setLocalVal(formatProductQty(safeQty, item.quantity_format, item.decimal_places, item.unit));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setLocalVal(val);
-    const parsed = parseFloat(val);
-    if (!isNaN(parsed) && parsed > 0) {
-      onUpdateQuantity(item.product_id, Math.round(parsed * 1000) / 1000);
+
+    const validation = validateProductQtyInput(val, item.quantity_format, item.decimal_places);
+    if (validation.valid && validation.parsedQty > 0) {
+      onUpdateQuantity(item.product_id, validation.parsedQty);
     }
   };
 
   const handleInputBlur = () => {
-    const parsed = parseFloat(localVal);
-    if (isNaN(parsed) || parsed <= 0) {
-      setLocalVal(formatQtyNumber(item.quantity));
-      onUpdateQuantity(item.product_id, item.quantity);
+    setIsFocused(false);
+    const validation = validateProductQtyInput(localVal, item.quantity_format, item.decimal_places);
+    if (!validation.valid || validation.parsedQty <= 0) {
+      const safeQty = validation.parsedQty > 0 ? validation.parsedQty : item.quantity;
+      setLocalVal(formatProductQty(safeQty, item.quantity_format, item.decimal_places, item.unit));
+      onUpdateQuantity(item.product_id, safeQty);
     } else {
-      const rounded = Math.round(parsed * 1000) / 1000;
-      setLocalVal(formatQtyNumber(rounded));
-      onUpdateQuantity(item.product_id, rounded);
+      setLocalVal(formatProductQty(validation.parsedQty, item.quantity_format, item.decimal_places, item.unit));
+      onUpdateQuantity(item.product_id, validation.parsedQty);
     }
   };
 
   const handleSelectPreset = (presetVal: number) => {
-    onUpdateQuantity(item.product_id, presetVal);
-    setLocalVal(formatQtyNumber(presetVal));
+    let finalVal = presetVal;
+    if (isInteger) {
+      finalVal = Math.round(presetVal);
+    } else {
+      const factor = Math.pow(10, maxDecimals);
+      finalVal = Math.round(presetVal * factor) / factor;
+    }
+    onUpdateQuantity(item.product_id, finalVal);
+    setLocalVal(formatProductQty(finalVal, item.quantity_format, item.decimal_places, item.unit));
     setIsPresetsOpen(false);
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(true);
     e.target.select();
   };
 
@@ -126,18 +154,20 @@ const QtyControlCell: React.FC<{
         barcodeInput.select();
       }
     } else if (e.key === 'Escape') {
-      setLocalVal(formatQtyNumber(item.quantity));
+      setLocalVal(formatProductQty(item.quantity, item.quantity_format, item.decimal_places, item.unit));
       e.currentTarget.blur();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const step = getStepIncrement(item.unit, e.shiftKey);
-      const newQty = Math.round((item.quantity + step) * 1000) / 1000;
-      onUpdateQuantity(item.product_id, newQty);
+      const step = getStepIncrement(item.unit, e.shiftKey, item.quantity_format, item.decimal_places);
+      const newQty = item.quantity + step;
+      const safeQty = isInteger ? Math.round(newQty) : Number(newQty.toFixed(maxDecimals));
+      onUpdateQuantity(item.product_id, safeQty);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const step = getStepIncrement(item.unit, e.shiftKey);
-      const newQty = Math.max(0, Math.round((item.quantity - step) * 1000) / 1000);
-      onUpdateQuantity(item.product_id, newQty);
+      const step = getStepIncrement(item.unit, e.shiftKey, item.quantity_format, item.decimal_places);
+      const newQty = Math.max(0, item.quantity - step);
+      const safeQty = isInteger ? Math.round(newQty) : Number(newQty.toFixed(maxDecimals));
+      onUpdateQuantity(item.product_id, safeQty);
     }
   };
 
@@ -148,31 +178,29 @@ const QtyControlCell: React.FC<{
         <button
           type="button"
           onClick={e => handleStep('down', e)}
-          title={`Decrease by ${getStepIncrement(item.unit)} (Hold Shift for fine step)`}
+          title={`Decrease (Hold Shift for fine step)`}
           className="w-5 h-5 rounded bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-2xs transition-colors shrink-0"
         >
           <Minus className="w-3 h-3" />
         </button>
 
         <input
-          type="number"
-          step="any"
-          min={isDecimal ? '0.01' : '1'}
-          max={item.available_stock}
+          type="text"
+          inputMode={isInteger ? 'numeric' : 'decimal'}
           value={localVal}
           data-qty-input="true"
           onFocus={handleFocus}
           onChange={handleInputChange}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
-          title="Type quantity (e.g. 0.5, 1.5, 5). Press Enter to confirm."
-          className="w-12 text-center text-xs font-bold font-mono bg-transparent outline-none p-0 text-slate-900 selection:bg-brand-500 selection:text-white cursor-text"
+          title={isInteger ? "Whole numbers only (1, 2, 3...)" : `Decimal quantity (max ${maxDecimals} decimals)`}
+          className="w-14 text-center text-xs font-bold font-mono bg-transparent outline-none p-0 text-slate-900 selection:bg-brand-500 selection:text-white cursor-text"
         />
 
         <button
           type="button"
           onClick={e => handleStep('up', e)}
-          title={`Increase by ${getStepIncrement(item.unit)} (Hold Shift for fine step)`}
+          title={`Increase (Hold Shift for fine step)`}
           className="w-5 h-5 rounded bg-white hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-2xs transition-colors shrink-0"
         >
           <Plus className="w-3 h-3" />

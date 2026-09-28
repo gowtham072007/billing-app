@@ -61,6 +61,8 @@ export const Products: React.FC = () => {
   const [stock, setStock] = useState<number | ''>('');
   const [minimumStock, setMinimumStock] = useState<number | ''>(5);
   const [unit, setUnit] = useState<string>('pcs');
+  const [quantityFormat, setQuantityFormat] = useState<'integer' | 'decimal'>('integer');
+  const [decimalPlaces, setDecimalPlaces] = useState<number>(2);
   const [image, setImage] = useState<string>('');
   const [isImageManuallyEdited, setIsImageManuallyEdited] = useState<boolean>(false);
   const [isCustomUploaded, setIsCustomUploaded] = useState<boolean>(false);
@@ -111,6 +113,8 @@ export const Products: React.FC = () => {
     setStock(10);
     setMinimumStock(5);
     setUnit('pcs');
+    setQuantityFormat('integer');
+    setDecimalPlaces(2);
     setImage(getAutoProductImage('', '', defaultCat));
     setIsImageManuallyEdited(false);
     setIsCustomUploaded(false);
@@ -149,6 +153,8 @@ export const Products: React.FC = () => {
       'சரம்': 'Charam',
     };
     setUnit(canonicalUnits[loadedUnit.toLowerCase()] || loadedUnit);
+    setQuantityFormat(p.quantity_format || 'integer');
+    setDecimalPlaces(p.decimal_places || 2);
     setImage(p.image || getAutoProductImage(p.name, p.name_tamil, p.category));
     setIsImageManuallyEdited(Boolean(p.image));
     setIsCustomUploaded(Boolean(p.image?.startsWith('data:')));
@@ -315,6 +321,8 @@ export const Products: React.FC = () => {
         stock: Number(stock) || 0,
         minimum_stock: Number(minimumStock) || 5,
         unit: unit.trim(),
+        quantity_format: quantityFormat,
+        decimal_places: quantityFormat === 'decimal' ? Number(decimalPlaces) || 2 : 2,
         image: image.trim() || null,
         status,
       };
@@ -567,6 +575,11 @@ export const Products: React.FC = () => {
                           }`}
                         >
                           {p.stock} {p.unit}
+                        </span>
+                        <span className="block text-[9px] font-semibold text-slate-500 mt-0.5">
+                          {p.quantity_format === 'decimal'
+                            ? `Dec (${p.decimal_places || 2} pl)`
+                            : 'Integer'}
                         </span>
                         {isLow && (
                           <span className="block text-[9px] text-amber-600 font-semibold mt-0.5">
@@ -863,7 +876,10 @@ export const Products: React.FC = () => {
               <label className="block text-xs font-bold text-slate-700 mb-1">Unit of Measure *</label>
               <select
                 value={unit}
-                onChange={e => setUnit(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setUnit(val);
+                }}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
               >
                 <option value="pcs">Pieces (pcs)</option>
@@ -880,6 +896,119 @@ export const Products: React.FC = () => {
                   <option value={unit}>{unit}</option>
                 )}
               </select>
+            </div>
+
+            {/* Quantity Format Setting */}
+            <div className="sm:col-span-2 bg-slate-50/90 p-3.5 rounded-2xl border border-slate-200/90 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-black text-slate-800 tracking-tight">
+                    Quantity Format / அளவு வகை *
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Choose whether POS quantity accepts and prints whole numbers or fractional decimal values.
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">
+                  {quantityFormat === 'integer' ? '🔢 Whole Numbers (Integer)' : `🎯 Decimal (${decimalPlaces} Decimals)`}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Option 1: Integer */}
+                <label
+                  onClick={() => setQuantityFormat('integer')}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    quantityFormat === 'integer'
+                      ? 'bg-brand-50/60 border-brand-600 ring-2 ring-brand-500/20 shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="quantityFormat"
+                    value="integer"
+                    checked={quantityFormat === 'integer'}
+                    onChange={() => setQuantityFormat('integer')}
+                    className="mt-0.5 text-brand-600 focus:ring-brand-500"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>Integer (1, 2, 3...)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      POS accepts and prints whole numbers only (e.g. 1, 2, 10, not 1.00). Ideal for count items, boxes, packets, pieces.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Option 2: Decimal */}
+                <label
+                  onClick={() => setQuantityFormat('decimal')}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    quantityFormat === 'decimal'
+                      ? 'bg-brand-50/60 border-brand-600 ring-2 ring-brand-500/20 shadow-xs'
+                      : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="quantityFormat"
+                    value="decimal"
+                    checked={quantityFormat === 'decimal'}
+                    onChange={() => setQuantityFormat('decimal')}
+                    className="mt-0.5 text-brand-600 focus:ring-brand-500"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>Decimal (0.1, 0.01, 0.001...)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Allows fractional quantities for weight, volume, length (e.g. 0.5, 1.25, 2.750).
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Conditional Decimal Places to Print Field */}
+              {quantityFormat === 'decimal' && (
+                <div className="pt-2 border-t border-slate-200/80 animate-in fade-in zoom-in-95 duration-150">
+                  <label className="block text-xs font-extrabold text-brand-900 mb-1.5 flex items-center justify-between">
+                    <span>Decimal Places to Print / தசம ஸ்தானங்கள் *</span>
+                    <span className="text-[10px] font-mono text-brand-700 font-bold bg-brand-50 px-2 py-0.5 rounded border border-brand-200">
+                      Sample: {decimalPlaces === 1 ? '1.5' : decimalPlaces === 2 ? '1.50' : decimalPlaces === 3 ? '1.500' : '1.5000'}
+                    </span>
+                  </label>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { places: 1, label: '1 → 1.5', desc: '1 Decimal Place' },
+                      { places: 2, label: '2 → 1.50', desc: '2 Decimal Places' },
+                      { places: 3, label: '3 → 1.500', desc: '3 Decimal Places' },
+                      { places: 4, label: '4 → 1.5000', desc: '4 Decimal Places' },
+                    ].map(opt => (
+                      <button
+                        key={opt.places}
+                        type="button"
+                        onClick={() => setDecimalPlaces(opt.places)}
+                        className={`p-2.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                          decimalPlaces === opt.places
+                            ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                            : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800'
+                        }`}
+                      >
+                        <div className="font-mono font-black text-xs">{opt.label}</div>
+                        <div className={`text-[10px] mt-0.5 ${decimalPlaces === opt.places ? 'text-brand-100' : 'text-slate-500'}`}>
+                          {opt.desc}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-2 block">
+                    Validates entered POS quantity precision and formats quantities across POS cart, bill preview, receipts, and bill history.
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>

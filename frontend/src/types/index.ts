@@ -42,6 +42,8 @@ export interface Product {
   stock: number;
   minimum_stock: number;
   unit: string;
+  quantity_format?: 'integer' | 'decimal';
+  decimal_places?: number;
   image?: string | null;
   status: 'active' | 'inactive';
   stock_status?: 'available' | 'low_stock' | 'out_of_stock';
@@ -65,6 +67,8 @@ export interface OrderItem {
   product_name_tamil?: string | null;
   quantity: number;
   unit: string;
+  quantity_format?: 'integer' | 'decimal';
+  decimal_places?: number;
   price: number;
   w_rate?: number;
   c_rate?: number;
@@ -105,6 +109,8 @@ export interface BillItem {
   product_name_tamil?: string | null;
   sku?: string;
   unit: string;
+  quantity_format?: 'integer' | 'decimal';
+  decimal_places?: number;
   quantity: number;
   price: number;
   rate_type?: 'c_rate' | 'w_rate';

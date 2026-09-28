@@ -39,8 +39,16 @@ router.get('/', authenticateToken, requireAdmin, (req, res, next) => {
         b.subtotal, b.discount, b.discount_type, b.tax, b.tax_percentage,
         b.grand_total, b.payment_method, b.payment_reference, b.order_id,
         b.created_at,
-        (SELECT COUNT(*) FROM bill_items WHERE bill_id = b.id) as item_count,
-        (SELECT GROUP_CONCAT(COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) || ' x' || bi.quantity, ', ') 
+        (SELECT GROUP_CONCAT(COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) || ' x' || 
+          CASE 
+            WHEN bi.quantity_format = 'integer' THEN CAST(ROUND(bi.quantity) AS INT)
+            WHEN bi.quantity_format = 'decimal' AND bi.decimal_places = 1 THEN printf('%.1f', bi.quantity)
+            WHEN bi.quantity_format = 'decimal' AND bi.decimal_places = 2 THEN printf('%.2f', bi.quantity)
+            WHEN bi.quantity_format = 'decimal' AND bi.decimal_places = 3 THEN printf('%.3f', bi.quantity)
+            WHEN bi.quantity_format = 'decimal' AND bi.decimal_places = 4 THEN printf('%.4f', bi.quantity)
+            WHEN bi.quantity = CAST(bi.quantity AS INT) THEN CAST(bi.quantity AS INT)
+            ELSE bi.quantity
+          END, ', ') 
          FROM bill_items bi
          LEFT JOIN products p ON p.id = bi.product_id
          WHERE bi.bill_id = b.id) as items_summary
@@ -141,7 +149,7 @@ router.get('/:id', authenticateToken, (req, res, next) => {
       SELECT 
         bi.id, bi.product_id, bi.product_name, 
         COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
-        bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+        bi.sku, bi.unit, bi.quantity_format, bi.decimal_places, bi.quantity, bi.price, bi.rate_type, bi.total
       FROM bill_items bi
       LEFT JOIN products p ON p.id = bi.product_id
       WHERE bi.bill_id = ?
@@ -184,7 +192,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
     const validatedItems = [];
 
     for (const item of items) {
-      const prod = db.prepare('SELECT id, name, name_tamil, sku, unit, selling_price, w_rate, c_rate, stock, status FROM products WHERE id = ?').get(item.product_id);
+      const prod = db.prepare('SELECT id, name, name_tamil, sku, unit, quantity_format, decimal_places, selling_price, w_rate, c_rate, stock, status FROM products WHERE id = ?').get(item.product_id);
       if (!prod) {
         return res.status(400).json({ error: `Product ID #${item.product_id} not found.` });
       }
@@ -207,6 +215,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
       subtotal += lineTotal;
 
       const resolvedTamilName = item.product_name_tamil || prod.name_tamil || prod.name;
+      const qtyFormat = item.quantity_format || prod.quantity_format || 'integer';
+      const decPlaces = item.decimal_places !== undefined ? Number(item.decimal_places) : (prod.decimal_places || 2);
 
       validatedItems.push({
         product_id: prod.id,
@@ -214,6 +224,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
         product_name_tamil: resolvedTamilName,
         sku: prod.sku,
         unit: prod.unit,
+        quantity_format: qtyFormat,
+        decimal_places: decPlaces,
         quantity: qty,
         price,
         rate_type: rateType,
@@ -269,8 +281,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
       // 2. Insert Bill Items with Tamil Names & Decrement Stock
       const insertItemStmt = db.prepare(`
         INSERT INTO bill_items (
-          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity, price, rate_type, total
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity_format, decimal_places, quantity, price, rate_type, total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const updateStockStmt = db.prepare(`
@@ -293,6 +305,8 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
           vi.product_name_tamil,
           vi.sku,
           vi.unit,
+          vi.quantity_format || 'integer',
+          vi.decimal_places || 2,
           vi.quantity,
           vi.price,
           vi.rate_type,
@@ -329,7 +343,7 @@ router.post('/', authenticateToken, requireAdmin, (req, res, next) => {
       SELECT 
         bi.id, bi.product_id, bi.product_name,
         COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
-        bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+        bi.sku, bi.unit, bi.quantity_format, bi.decimal_places, bi.quantity, bi.price, bi.rate_type, bi.total
       FROM bill_items bi
       LEFT JOIN products p ON p.id = bi.product_id
       WHERE bi.bill_id = ?
@@ -509,8 +523,8 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
 
       const insertItemStmt = db.prepare(`
         INSERT INTO bill_items (
-          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity, price, rate_type, total
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity_format, decimal_places, quantity, price, rate_type, total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const updateStockStmt = db.prepare(`
@@ -533,6 +547,8 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
           vi.product_name_tamil,
           vi.sku,
           vi.unit,
+          vi.quantity_format || 'integer',
+          vi.decimal_places || 2,
           vi.quantity,
           vi.price,
           vi.rate_type,
@@ -568,7 +584,7 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res, next) => {
       SELECT 
         bi.id, bi.product_id, bi.product_name,
         COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
-        bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+        bi.sku, bi.unit, bi.quantity_format, bi.decimal_places, bi.quantity, bi.price, bi.rate_type, bi.total
       FROM bill_items bi
       LEFT JOIN products p ON p.id = bi.product_id
       WHERE bi.bill_id = ?

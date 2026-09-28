@@ -98,7 +98,7 @@ router.get('/:id/receipt', authenticateToken, (req, res, next) => {
         SELECT 
           bi.id, bi.product_id, bi.product_name, 
           COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
-          bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+          bi.sku, bi.unit, bi.quantity_format, bi.decimal_places, bi.quantity, bi.price, bi.rate_type, bi.total
         FROM bill_items bi
         LEFT JOIN products p ON p.id = bi.product_id
         WHERE bi.bill_id = ?
@@ -109,7 +109,7 @@ router.get('/:id/receipt', authenticateToken, (req, res, next) => {
         SELECT 
           oi.id, oi.product_id, oi.product_name, 
           COALESCE(NULLIF(oi.product_name_tamil, ''), p.name_tamil, oi.product_name) as product_name_tamil,
-          oi.quantity, oi.unit, oi.price, oi.total,
+          oi.quantity, oi.unit, oi.quantity_format, oi.decimal_places, oi.price, oi.total,
           p.w_rate, p.c_rate, p.selling_price, p.sku
         FROM order_items oi
         LEFT JOIN products p ON p.id = oi.product_id
@@ -201,7 +201,7 @@ router.get('/:id', authenticateToken, (req, res, next) => {
       SELECT 
         oi.id, oi.product_id, oi.product_name, 
         COALESCE(NULLIF(oi.product_name_tamil, ''), p.name_tamil, oi.product_name) as product_name_tamil,
-        oi.quantity, oi.unit, oi.price, oi.total,
+        oi.quantity, oi.unit, oi.quantity_format, oi.decimal_places, oi.price, oi.total,
         p.w_rate, p.c_rate, p.selling_price,
         p.image, p.sku, p.stock as available_stock
       FROM order_items oi
@@ -240,7 +240,7 @@ router.post('/', authenticateToken, (req, res, next) => {
     const validatedItems = [];
 
     for (const item of items) {
-      const prod = db.prepare('SELECT id, name, name_tamil, selling_price, w_rate, c_rate, stock, unit, status FROM products WHERE id = ?').get(item.product_id);
+      const prod = db.prepare('SELECT id, name, name_tamil, selling_price, w_rate, c_rate, stock, unit, quantity_format, decimal_places, status FROM products WHERE id = ?').get(item.product_id);
       if (!prod || prod.status !== 'active') {
         return res.status(400).json({ error: `Product "${item.product_name || 'Selected item'}" is currently unavailable.` });
       }
@@ -266,6 +266,8 @@ router.post('/', authenticateToken, (req, res, next) => {
         product_name_tamil: prod.name_tamil || null,
         quantity: qty,
         unit: prod.unit,
+        quantity_format: prod.quantity_format || 'integer',
+        decimal_places: prod.decimal_places || 2,
         price,
         total: lineTotal
       });
@@ -297,8 +299,8 @@ router.post('/', authenticateToken, (req, res, next) => {
 
       const itemStmt = db.prepare(`
         INSERT INTO order_items (
-          order_id, product_id, product_name, product_name_tamil, quantity, unit, price, total
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          order_id, product_id, product_name, product_name_tamil, quantity, unit, quantity_format, decimal_places, price, total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       for (const item of validatedItems) {
@@ -309,6 +311,8 @@ router.post('/', authenticateToken, (req, res, next) => {
           item.product_name_tamil,
           item.quantity,
           item.unit,
+          item.quantity_format || 'integer',
+          item.decimal_places || 2,
           item.price,
           item.total
         );
@@ -403,7 +407,7 @@ function fulfillOrderHandler(req, res, next) {
           SELECT 
             bi.id, bi.product_id, bi.product_name,
             COALESCE(NULLIF(bi.product_name_tamil, ''), p.name_tamil, bi.product_name) as product_name_tamil,
-            bi.sku, bi.unit, bi.quantity, bi.price, bi.rate_type, bi.total
+            bi.sku, bi.unit, bi.quantity_format, bi.decimal_places, bi.quantity, bi.price, bi.rate_type, bi.total
           FROM bill_items bi
           LEFT JOIN products p ON p.id = bi.product_id
           WHERE bi.bill_id = ?
@@ -515,8 +519,8 @@ function fulfillOrderHandler(req, res, next) {
       // 2. Insert Bill Items with W-Rate / C-Rate & Decrement Stock & Add Audit
       const billItemStmt = db.prepare(`
         INSERT INTO bill_items (
-          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity, price, rate_type, total
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          bill_id, product_id, product_name, product_name_tamil, sku, unit, quantity_format, decimal_places, quantity, price, rate_type, total
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const updateStockStmt = db.prepare(`
@@ -540,6 +544,8 @@ function fulfillOrderHandler(req, res, next) {
           tamilName,
           item.sku || 'N/A',
           item.unit,
+          item.quantity_format || 'integer',
+          item.decimal_places || 2,
           item.quantity,
           item.price,
           item.rate_type,
