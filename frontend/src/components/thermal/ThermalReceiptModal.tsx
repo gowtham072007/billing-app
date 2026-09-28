@@ -149,7 +149,7 @@ Items: ${String(items.length).padEnd(17)} Total Qty: ${totalQty % 1 === 0 ? tota
 ${Number(bill.discount || 0) > 0 ? `Discount:                       -₹${Number(bill.discount).toFixed(2).padStart(10)}\n` : ''}${Number(bill.tax || 0) > 0 ? `Tax / GST:                      +₹${Number(bill.tax).toFixed(2).padStart(10)}\n` : ''}================================================
 TOTAL:                           ₹${Number(bill.grand_total || 0).toFixed(2).padStart(10)}
 ${bill.payment_reference ? `Ref / Note: ${bill.payment_reference}\n` : ''}================================================
-${settings?.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'}
+${(settings?.print_upi_qr === undefined || settings?.print_upi_qr === null || settings?.print_upi_qr === 'true' || String(settings?.print_upi_qr) === 'true') && settings?.upi_id ? `Pay via UPI: ${settings.upi_id} | Amount: ₹${Number(bill.grand_total || 0).toFixed(2)}\n------------------------------------------------\n` : ''}${settings?.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'}
 *** QuickBill POS System ***
 `;
     navigator.clipboard.writeText(textReceipt.trim());

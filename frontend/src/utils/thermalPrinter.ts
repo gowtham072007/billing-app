@@ -219,8 +219,22 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
   }
   chunks.push(...encoder.encode('================================================\n'));
 
-  // Center alignment for footer
+  // Center alignment for UPI & Footer
   chunks.push(ESC, 0x61, 0x01);
+
+  const isPrintUpiQrEnabled =
+    settings?.print_upi_qr === undefined ||
+    settings?.print_upi_qr === null ||
+    settings?.print_upi_qr === 'true' ||
+    String(settings?.print_upi_qr) === 'true';
+
+  const upiId = (settings?.upi_id || '').trim();
+  if (isPrintUpiQrEnabled && upiId) {
+    chunks.push(...encoder.encode(`SCAN / PAY VIA UPI\n`));
+    chunks.push(...encoder.encode(`UPI ID: ${upiId}\n`));
+    chunks.push(...encoder.encode(`Amount: Rs. ${Number(bill.grand_total || 0).toFixed(2)}\n`));
+    chunks.push(...encoder.encode('------------------------------------------------\n'));
+  }
   const footerRaw = (settings?.receipt_footer !== undefined && settings?.receipt_footer !== null && settings?.receipt_footer !== '')
     ? settings.receipt_footer
     : 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.';

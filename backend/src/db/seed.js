@@ -28,7 +28,11 @@ async function seedDatabase() {
     ['receipt_footer', 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'],
     ['default_tax_rate', '0'],
     ['currency_symbol', '₹'],
-    ['thermal_paper_width', '100mm'] // 4-inch standard
+    ['thermal_paper_width', '100mm'], // 4-inch standard
+    ['upi_id', 'vilmanitraders1386@iob'],
+    ['upi_payee_name', 'VILMANI TRADERS'],
+    ['bank_name', 'Indian Overseas Bank'],
+    ['print_upi_qr', 'true']
   ];
 
   for (const [k, v] of defaultSettings) {

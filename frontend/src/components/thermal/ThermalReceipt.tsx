@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bill, BillItem, ShopSettings } from '../../types';
 import { formatPrintBillQty, getTamilUnit } from '../../utils/qtyHelper';
+import { buildUpiPaymentUri, generateUpiQrDataUrl, isValidUpiId } from '../../utils/upiHelper';
 
 interface ThermalReceiptProps {
   bill: Bill;
@@ -20,6 +21,46 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const shopPhone = settings.shop_phone || '+91 94862 85112';
   const shopGstin = settings.shop_gstin || '33CKNPA2440R1ZZ';
   const footerMessage = settings.receipt_footer || 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.';
+
+  // Check if Print UPI QR is enabled (defaults to true)
+  const isPrintUpiQrEnabled =
+    settings.print_upi_qr === undefined ||
+    settings.print_upi_qr === null ||
+    settings.print_upi_qr === 'true' ||
+    String(settings.print_upi_qr) === 'true';
+
+  const upiId = (settings.upi_id || '').trim();
+  const payeeName = settings.upi_payee_name || settings.shop_name || 'VILMANI TRADERS';
+  const payableAmount = Number(bill.grand_total || 0);
+  const hasValidUpi = isValidUpiId(upiId);
+
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isPrintUpiQrEnabled && hasValidUpi && payableAmount >= 0) {
+      const uri = buildUpiPaymentUri({
+        upiId,
+        payeeName,
+        amount: payableAmount > 0 ? payableAmount : undefined,
+        billNumber: bill.bill_number,
+        note: `Bill ${bill.bill_number}`,
+      });
+      generateUpiQrDataUrl(uri, { width: 220, margin: 1 })
+        .then(url => {
+          if (isMounted) setQrDataUrl(url);
+        })
+        .catch(err => {
+          console.error('Failed to generate thermal bill QR:', err);
+          if (isMounted) setQrDataUrl('');
+        });
+    } else {
+      setQrDataUrl('');
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isPrintUpiQrEnabled, hasValidUpi, upiId, payeeName, payableAmount, bill.bill_number]);
 
   // Format Date and Time in Indian Standard Time (IST - Asia/Kolkata)
   const parseDateToIST = (input?: string | Date | null): Date => {
@@ -377,6 +418,70 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         )}
 
       </div>
+
+      {/* 5.5. UPI PAYMENT QR CODE SECTION */}
+      {isPrintUpiQrEnabled && (
+        <div
+          className="text-center my-2 pt-2 border-t border-dashed border-black"
+          style={{ boxSizing: 'border-box' }}
+        >
+          {hasValidUpi ? (
+            <div className="space-y-1">
+              <div
+                className="font-extrabold uppercase tracking-wide text-center"
+                style={{ fontSize: '10.5px', letterSpacing: '0.5px' }}
+              >
+                <span>UPI மூலம் பணம் செலுத்த ஸ்கேன் செய்யவும்</span>
+                <span className="block text-[9px] font-bold text-neutral-800">
+                  SCAN TO PAY VIA UPI (GPay / PhonePe / Paytm)
+                </span>
+              </div>
+
+              {qrDataUrl ? (
+                <div className="py-1 flex flex-col items-center justify-center">
+                  <img
+                    src={qrDataUrl}
+                    alt="UPI Payment QR Code"
+                    style={{
+                      width: '36mm',
+                      height: '36mm',
+                      maxWidth: '140px',
+                      maxHeight: '140px',
+                      display: 'block',
+                      margin: '0 auto',
+                      imageRendering: 'pixelated',
+                      border: '1px solid #000000',
+                      padding: '1.5px',
+                      backgroundColor: '#ffffff',
+                    }}
+                  />
+                  <div className="mt-1 space-y-0.5 text-center font-mono" style={{ fontSize: '9.5px' }}>
+                    <p className="font-bold text-black leading-tight">
+                      UPI ID: {upiId}
+                    </p>
+                    <p className="font-black text-black leading-tight">
+                      Amount: ₹{payableAmount.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-2 text-[10px] text-neutral-600 font-mono">
+                  Loading UPI QR Code...
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="p-1.5 rounded border border-dashed border-black text-center"
+              style={{ fontSize: '9.5px', backgroundColor: '#f9fafb' }}
+            >
+              <p className="font-bold text-black">
+                ⚠️ UPI QR Enabled: Please configure a valid UPI ID in Settings to print payment QR code.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 6. FOOTER */}
       <div
