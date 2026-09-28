@@ -103,47 +103,47 @@ ${settings?.shop_address || ''}
 Ph: ${settings?.shop_phone || ''}
 ${settings?.shop_gstin ? `GSTIN: ${settings.shop_gstin}` : ''}
 ================================================
-PRODUCT DETAILS
+TAX INVOICE 
 ------------------------------------------------
 Bill No: ${bill.bill_number.padEnd(23)} Date: ${(() => {
-  const parseDateToIST = (input?: string | Date | null): Date => {
-    if (!input) return new Date();
-    if (input instanceof Date) return input;
-    const str = String(input).trim();
-    if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
-      return new Date(str.replace(' ', 'T') + 'Z');
-    }
-    return new Date(str);
-  };
-  const d = parseDateToIST(bill.created_at);
-  return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' });
-})()}
+        const parseDateToIST = (input?: string | Date | null): Date => {
+          if (!input) return new Date();
+          if (input instanceof Date) return input;
+          const str = String(input).trim();
+          if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
+            return new Date(str.replace(' ', 'T') + 'Z');
+          }
+          return new Date(str);
+        };
+        const d = parseDateToIST(bill.created_at);
+        return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' });
+      })()}
 Customer: ${(bill.customer_name || 'Walk-in').slice(0, 22).padEnd(22)} Time: ${(() => {
-  const parseDateToIST = (input?: string | Date | null): Date => {
-    if (!input) return new Date();
-    if (input instanceof Date) return input;
-    const str = String(input).trim();
-    if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
-      return new Date(str.replace(' ', 'T') + 'Z');
-    }
-    return new Date(str);
-  };
-  const d = parseDateToIST(bill.created_at);
-  return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
-})()}
+        const parseDateToIST = (input?: string | Date | null): Date => {
+          if (!input) return new Date();
+          if (input instanceof Date) return input;
+          const str = String(input).trim();
+          if (!str.endsWith('Z') && !str.includes('+') && str.includes(':')) {
+            return new Date(str.replace(' ', 'T') + 'Z');
+          }
+          return new Date(str);
+        };
+        const d = parseDateToIST(bill.created_at);
+        return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
+      })()}
 ${bill.customer_phone ? `Mobile: ${bill.customer_phone.padEnd(24)} Mode: ${(bill.payment_method || 'CASH').toUpperCase()}\n` : ''}------------------------------------------------
 NO  ITEM                 QTY       PRICE     AMOUNT
 ------------------------------------------------
 ${items
-  .map(
-    (item, index) =>
-      `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
-        .slice(0, 16)
-        .padEnd(17)}${`${formatPrintBillQty(item.quantity, item.unit)} ${getTamilUnit(item.unit)}`.padStart(9)}${Number(item.price)
-        .toFixed(2)
-        .padStart(8)}${Number(item.total).toFixed(2).padStart(10)}`
-  )
-  .join('\n')}
+        .map(
+          (item, index) =>
+            `${String(index + 1).padEnd(4)}${(item.product_name_tamil || item.product_name || 'Item')
+              .slice(0, 16)
+              .padEnd(17)}${`${formatPrintBillQty(item.quantity, item.unit)} ${getTamilUnit(item.unit)}`.padStart(9)}${Number(item.price)
+                .toFixed(2)
+                .padStart(8)}${Number(item.total).toFixed(2).padStart(10)}`
+        )
+        .join('\n')}
 ------------------------------------------------
 Items: ${String(items.length).padEnd(17)} Total Qty: ${totalQty % 1 === 0 ? totalQty.toFixed(0) : totalQty.toFixed(3)}
 ${Number(bill.discount || 0) > 0 ? `Discount:                       -₹${Number(bill.discount).toFixed(2).padStart(10)}\n` : ''}${Number(bill.tax || 0) > 0 ? `Tax / GST:                      +₹${Number(bill.tax).toFixed(2).padStart(10)}\n` : ''}================================================
