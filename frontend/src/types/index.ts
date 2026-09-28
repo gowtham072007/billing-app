@@ -177,6 +177,7 @@ export interface ShopSettings {
   upi_id?: string;
   upi_payee_name?: string;
   bank_name?: string;
+  print_upi_qr?: string;
 }
 
 export interface DashboardStats {

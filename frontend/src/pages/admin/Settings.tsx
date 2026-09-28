@@ -1,9 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Printer, CheckCircle2, Store, QrCode } from 'lucide-react';
+import {
+  Settings as SettingsIcon,
+  Save,
+  Printer,
+  CheckCircle2,
+  Store,
+  QrCode,
+  Download,
+  Smartphone,
+  AlertCircle,
+} from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { ThermalReceipt } from '../../components/thermal/ThermalReceipt';
 import { InstallAppButton } from '../../components/common/InstallAppButton';
 import { Bill, BillItem } from '../../types';
+import { buildUpiPaymentUri, generateUpiQrDataUrl, isValidUpiId } from '../../utils/upiHelper';
 
 export const Settings: React.FC = () => {
   const { settings, updateSettings } = useSettings();
@@ -21,7 +32,49 @@ export const Settings: React.FC = () => {
     upi_id: settings.upi_id || 'vilmanitraders1386@iob',
     upi_payee_name: settings.upi_payee_name || 'VILMANI TRADERS',
     bank_name: settings.bank_name || 'Indian Overseas Bank',
+    print_upi_qr: settings.print_upi_qr || 'true',
   });
+
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string>('');
+  const [upiUriString, setUpiUriString] = useState<string>('');
+
+  const isValidUpi = isValidUpiId(formData.upi_id);
+
+  // Generate QR code whenever UPI ID or Payee Name changes
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function updateQr() {
+      if (isValidUpiId(formData.upi_id)) {
+        const uri = buildUpiPaymentUri({
+          upiId: formData.upi_id,
+          payeeName: formData.upi_payee_name || formData.shop_name,
+        });
+        setUpiUriString(uri);
+
+        try {
+          const dataUrl = await generateUpiQrDataUrl(uri, { width: 320 });
+          if (!isCancelled) {
+            setQrPreviewUrl(dataUrl);
+          }
+        } catch (err) {
+          console.error('Failed to generate UPI QR data URL:', err);
+          if (!isCancelled) {
+            setQrPreviewUrl('');
+          }
+        }
+      } else {
+        setUpiUriString('');
+        setQrPreviewUrl('');
+      }
+    }
+
+    updateQr();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [formData.upi_id, formData.upi_payee_name, formData.shop_name]);
 
   useEffect(() => {
     if (settings && Object.keys(settings).length > 0) {
@@ -39,6 +92,7 @@ export const Settings: React.FC = () => {
         upi_id: settings.upi_id ?? prev.upi_id,
         upi_payee_name: settings.upi_payee_name ?? prev.upi_payee_name,
         bank_name: settings.bank_name ?? prev.bank_name,
+        print_upi_qr: settings.print_upi_qr ?? prev.print_upi_qr,
       }));
     }
   }, [settings]);
@@ -49,6 +103,50 @@ export const Settings: React.FC = () => {
   const handleChange = (field: string, val: string) => {
     setFormData(prev => ({ ...prev, [field]: val }));
     setIsSaved(false);
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrPreviewUrl) return;
+    const a = document.createElement('a');
+    a.href = qrPreviewUrl;
+    a.download = `UPI_QR_${formData.upi_id.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handlePrintQr = () => {
+    if (!qrPreviewUrl) return;
+    const printWin = window.open('', '_blank');
+    if (!printWin) return;
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>UPI Payment QR - ${formData.upi_payee_name || formData.shop_name}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 40px; margin: 0; background: #fafafa; }
+            .card { background: #fff; border: 3px solid #000; border-radius: 24px; padding: 32px 24px; max-width: 360px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+            h2 { margin: 0 0 6px 0; font-size: 22px; font-weight: 900; }
+            p { margin: 4px 0; color: #555; font-size: 13px; }
+            .qr { width: 240px; height: 240px; margin: 16px auto; display: block; border: 1px solid #ddd; border-radius: 12px; }
+            .vpa { font-family: monospace; font-size: 15px; font-weight: 800; background: #f0fdf4; color: #166534; padding: 8px 14px; border-radius: 8px; display: inline-block; margin-top: 10px; border: 1px solid #bbf7d0; }
+            .apps { font-size: 12px; font-weight: bold; color: #1e40af; margin-top: 16px; line-height: 1.4; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="card">
+            <h2>${formData.upi_payee_name || formData.shop_name}</h2>
+            <p>${formData.shop_address || ''}</p>
+            <p style="font-size: 11px; font-weight: bold; color: #666; margin-top: 8px;">SCAN & PAY USING ANY UPI APP</p>
+            <img class="qr" src="${qrPreviewUrl}" alt="UPI QR" />
+            <div class="vpa">${formData.upi_id}</div>
+            <p class="apps">Accepted on Google Pay • PhonePe • Paytm • BHIM • Cred • All UPI Apps</p>
+          </div>
+        </body>
+      </html>
+    `);
+    printWin.document.close();
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -172,10 +270,15 @@ export const Settings: React.FC = () => {
 
           {/* UPI & QR Payment Configuration Card */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <QrCode className="w-4 h-4 text-blue-600" />
-              <span>UPI & QR Payment Details</span>
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-blue-600" />
+                <span>UPI & QR Payment Details</span>
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                ⚡ Real-time Dynamic QR
+              </span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -200,9 +303,10 @@ export const Settings: React.FC = () => {
                   placeholder="e.g. VILMANI TRADERS"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none font-bold"
                 />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Name shown on customer's payment app</span>
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Bank Name (Optional)</label>
                 <input
                   type="text"
@@ -212,6 +316,97 @@ export const Settings: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Print UPI QR on Thermal Bill</label>
+                <select
+                  value={formData.print_upi_qr}
+                  onChange={e => handleChange('print_upi_qr', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none font-semibold text-slate-800"
+                >
+                  <option value="true">Yes — Print QR Code on Thermal Receipts</option>
+                  <option value="false">No — Do not print QR on receipts</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Live QR Code Preview & Actions Area */}
+            <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-emerald-600" />
+                  <span>UPI Payment QR Preview</span>
+                </span>
+                {isValidUpi && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-200">
+                    ✓ Valid UPI Format
+                  </span>
+                )}
+              </div>
+
+              {isValidUpi && qrPreviewUrl ? (
+                <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-200">
+                  {/* QR Image */}
+                  <div className="p-2 bg-white rounded-xl border-2 border-slate-900/10 shadow-sm shrink-0">
+                    <img
+                      src={qrPreviewUrl}
+                      alt="UPI Payment QR Code"
+                      className="w-36 h-36 mx-auto rounded-lg object-contain"
+                    />
+                  </div>
+
+                  {/* QR Meta & Action Buttons */}
+                  <div className="flex-1 space-y-2.5 text-left w-full">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 truncate">
+                        {formData.upi_payee_name || formData.shop_name || 'Merchant'}
+                      </p>
+                      <p className="text-[11px] font-mono font-bold text-blue-700 truncate">
+                        {formData.upi_id}
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        Scannable by Google Pay, PhonePe, Paytm, BHIM & all UPI apps.
+                      </p>
+                    </div>
+
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 font-mono text-[9.5px] text-slate-600 break-all select-all">
+                      {upiUriString}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleDownloadQr}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                        title="Download QR code as PNG image"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download PNG</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handlePrintQr}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Print Standee for Store Counter"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Print Store Standee</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-bold">Please enter a valid UPI ID to generate QR code.</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Example: <span className="font-mono font-bold">vilmanitraders1386@iob</span> or <span className="font-mono font-bold">9876543210@paytm</span>
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

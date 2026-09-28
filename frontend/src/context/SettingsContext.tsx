@@ -19,6 +19,10 @@ const defaultSettings: ShopSettings = {
   default_tax_rate: '0',
   currency_symbol: '₹',
   thermal_paper_width: '100mm',
+  upi_id: 'vilmanitraders1386@iob',
+  upi_payee_name: 'VILMANI TRADERS',
+  bank_name: 'Indian Overseas Bank',
+  print_upi_qr: 'true',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
