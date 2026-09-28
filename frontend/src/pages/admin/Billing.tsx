@@ -879,7 +879,7 @@ export const Billing: React.FC = () => {
   const currentGrandTotal = Math.round(currentTaxable + currentTax);
 
   return (
-    <div className="h-[calc(100vh-2rem)] p-3 sm:p-4 max-w-7xl mx-auto flex flex-col space-y-2.5">
+    <div className="min-h-[calc(100vh-2rem)] lg:h-[calc(100vh-2rem)] p-3 sm:p-4 max-w-7xl mx-auto flex flex-col space-y-2.5">
       {/* 10 Section Billing Tabs Switcher Header */}
       <BillSectionTabs
         sections={sections}
@@ -913,7 +913,7 @@ export const Billing: React.FC = () => {
       {/* POS Billing Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         {/* Left: Product Catalog Grid & Barcode Scanner */}
-        <div className="lg:col-span-7 h-full flex flex-col min-h-0">
+        <div className="lg:col-span-7 h-auto lg:h-full flex flex-col min-h-0">
           <ProductSearchGrid
             products={products}
             categories={categories}
@@ -925,7 +925,7 @@ export const Billing: React.FC = () => {
         </div>
 
         {/* Right: Bill Cart Table, Calculations & Payment for Active Section */}
-        <div className="lg:col-span-5 h-full flex flex-col min-h-0">
+        <div className="lg:col-span-5 h-auto lg:h-full flex flex-col min-h-0">
           <BillCartTable
             items={activeSection.items}
             customer={activeSection.selectedCustomer}

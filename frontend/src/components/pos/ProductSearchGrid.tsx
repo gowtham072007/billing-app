@@ -72,7 +72,7 @@ export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
   });
 
   return (
-    <div className="flex flex-col h-full space-y-3">
+    <div className="flex flex-col h-auto lg:h-full space-y-3">
       {/* Top Search & Barcode Scanner Row */}
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
         {/* Barcode / SKU Instant Scanner */}
@@ -174,7 +174,7 @@ export const ProductSearchGrid: React.FC<ProductSearchGridProps> = ({
       </div>
 
       {/* Product Cards Grid */}
-      <div className="flex-1 overflow-y-auto pr-1">
+      <div className="flex-1 min-h-[160px] max-h-[380px] lg:max-h-none overflow-y-auto pr-1">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-200">
             <Layers className="w-10 h-10 text-slate-300 mx-auto mb-2" />
