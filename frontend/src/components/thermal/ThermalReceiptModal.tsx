@@ -103,7 +103,7 @@ ${settings?.shop_address || ''}
 Ph: ${settings?.shop_phone || ''}
 ${settings?.shop_gstin ? `GSTIN: ${settings.shop_gstin}` : ''}
 ================================================
-TAX INVOICE
+PRODUCT DETAILS
 ------------------------------------------------
 Bill No: ${bill.bill_number.padEnd(23)} Date: ${(() => {
   const parseDateToIST = (input?: string | Date | null): Date => {
