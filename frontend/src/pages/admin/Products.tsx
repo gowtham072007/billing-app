@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
@@ -18,7 +18,8 @@ import {
   Check,
   Wand2,
   Upload,
-  Globe,
+  X,
+  UploadCloud,
 } from 'lucide-react';
 import { Product } from '../../types';
 import { api } from '../../api/client';
@@ -65,10 +66,8 @@ export const Products: React.FC = () => {
   const [isCustomUploaded, setIsCustomUploaded] = useState<boolean>(false);
   const [showCustomImageInput, setShowCustomImageInput] = useState<boolean>(false);
   const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
-  const [webImageResults, setWebImageResults] = useState<string[]>([]);
-  const [isSearchingWebImage, setIsSearchingWebImage] = useState<boolean>(false);
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [formError, setFormError] = useState<string>('');
 
@@ -97,39 +96,6 @@ export const Products: React.FC = () => {
     fetchProducts();
   }, [selectedCategory, stockStatusFilter]);
 
-  // Search product images on Google / Web & OpenFoodFacts
-  const fetchWebProductImage = async (
-    searchTermQuery: string,
-    barcodeVal?: string,
-    forceAutoSet: boolean = false
-  ) => {
-    const q = searchTermQuery.trim();
-    if (!q && !barcodeVal) return;
-
-    setIsSearchingWebImage(true);
-    try {
-      const res = await api.get<{ results: string[]; bestImage: string | null }>(
-        '/products/search-image',
-        { q, barcode: barcodeVal || undefined }
-      );
-
-      if (res.results && res.results.length > 0) {
-        setWebImageResults(res.results);
-        if (res.bestImage && (!isImageManuallyEdited || forceAutoSet)) {
-          setImage(res.bestImage);
-          if (forceAutoSet) {
-            setIsImageManuallyEdited(false);
-            setIsCustomUploaded(false);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Web image search failed:', err);
-    } finally {
-      setIsSearchingWebImage(false);
-    }
-  };
-
   const handleOpenAddModal = () => {
     setIsEditing(false);
     setCurrentId(null);
@@ -149,8 +115,7 @@ export const Products: React.FC = () => {
     setIsImageManuallyEdited(false);
     setIsCustomUploaded(false);
     setShowCustomImageInput(false);
-    setWebImageResults([]);
-    setIsSearchingWebImage(false);
+    setIsDragOver(false);
     setStatus('active');
     setFormError('');
     setIsModalOpen(true);
@@ -174,25 +139,17 @@ export const Products: React.FC = () => {
     setIsImageManuallyEdited(Boolean(p.image));
     setIsCustomUploaded(Boolean(p.image?.startsWith('data:')));
     setShowCustomImageInput(false);
-    setWebImageResults([]);
-    setIsSearchingWebImage(false);
+    setIsDragOver(false);
     setStatus(p.status);
     setFormError('');
     setIsModalOpen(true);
   };
 
-  // Automatically update product image when typing name if not manually overridden & fetch from Google/Web
+  // Automatically update product image preset when typing name if not manually uploaded/edited
   const handleNameChange = (val: string) => {
     setName(val);
     if (!isImageManuallyEdited) {
       setImage(getAutoProductImage(val, nameTamil, category));
-    }
-    // Debounced automatic Google / Web search
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (val.trim().length >= 3) {
-      searchTimeoutRef.current = setTimeout(() => {
-        fetchWebProductImage(val, barcode, false);
-      }, 650);
     }
   };
 
@@ -200,12 +157,6 @@ export const Products: React.FC = () => {
     setNameTamil(val);
     if (!isImageManuallyEdited) {
       setImage(getAutoProductImage(name, val, category));
-    }
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (val.trim().length >= 3) {
-      searchTimeoutRef.current = setTimeout(() => {
-        fetchWebProductImage(name || val, barcode, false);
-      }, 650);
     }
   };
 
@@ -227,22 +178,18 @@ export const Products: React.FC = () => {
     setImage(autoImg);
     setIsImageManuallyEdited(false);
     setIsCustomUploaded(false);
-    if (name.trim() || nameTamil.trim() || barcode.trim()) {
-      fetchWebProductImage(name || nameTamil, barcode, true);
-    }
   };
 
-  const handleSearchGoogleImage = () => {
-    fetchWebProductImage(name || nameTamil, barcode, true);
+  const handleRemovePhoto = () => {
+    setImage('');
+    setIsImageManuallyEdited(true);
+    setIsCustomUploaded(false);
   };
 
-  // Upload photo from device (File picker / Phone Camera / Gallery) with automatic canvas compression
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Process uploaded image file (from camera, file picker, or drag & drop)
+  const processImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (JPG, PNG, WEBP, etc.)');
+      alert('Please select a valid image file (JPG, PNG, WEBP, etc.)');
       return;
     }
 
@@ -251,7 +198,7 @@ export const Products: React.FC = () => {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        // High quality responsive canvas compression to max 600px for speed & lightweight payload
+        // High quality canvas downscaling to max 600px for speed & lightweight payload
         const canvas = document.createElement('canvas');
         const maxDim = 600;
         let width = img.width;
@@ -292,7 +239,35 @@ export const Products: React.FC = () => {
       alert('Failed to read image file.');
     };
     reader.readAsDataURL(file);
+  };
+
+  // Upload photo from device (File picker / Phone Camera / Gallery)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
     e.target.value = '';
+  };
+
+  // Drag & Drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -669,9 +644,18 @@ export const Products: React.FC = () => {
               </span>
             </div>
 
-            {/* Product Picture Auto-Selection & Upload Box */}
-            <div className="sm:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3.5">
-              {/* Hidden File Input for Device/Camera Upload */}
+            {/* Product Picture Manual Upload Box */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`sm:col-span-2 p-4 rounded-2xl border transition-all space-y-3.5 ${
+                isDragOver
+                  ? 'bg-brand-50/70 border-brand-500 border-dashed ring-2 ring-brand-500/20'
+                  : 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              {/* Hidden File Input for Device / Camera Upload */}
               <input
                 type="file"
                 ref={fileInputRef}
@@ -682,50 +666,52 @@ export const Products: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-brand-600" />
+                  <Camera className="w-4 h-4 text-brand-600" />
                   <label className="text-xs font-extrabold text-slate-800">
-                    Product Picture (கூகுள் படம் / Google & Web Auto-Set)
+                    Product Photo (பொருளின் படம் / Upload Photo)
                   </label>
+                  {isCustomUploaded && (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                      ✓ Uploaded Photo
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Google / Web Search Button */}
-                  <button
-                    type="button"
-                    onClick={handleSearchGoogleImage}
-                    disabled={isSearchingWebImage || (!name.trim() && !nameTamil.trim() && !barcode.trim())}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-blue-600/20 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
-                    title="Search Google & Web for real product photos"
-                  >
-                    {isSearchingWebImage ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Globe className="w-3.5 h-3.5" />
-                    )}
-                    <span>{isSearchingWebImage ? 'Searching...' : 'Google Image Search'}</span>
-                  </button>
-
                   {/* Upload Photo Button */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploadingImage}
-                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-brand-600/20 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
-                    title="Upload photo from your computer or phone gallery / camera"
+                    className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-brand-600/25 transition-all cursor-pointer"
+                    title="Upload photo from phone camera, gallery or computer"
                   >
                     <Upload className="w-3.5 h-3.5 text-white" />
                     <span>{isUploadingImage ? 'Uploading...' : t('upload_photo')}</span>
                   </button>
 
-                  {/* Auto-Set Picture Button */}
+                  {/* Remove Photo Button */}
+                  {image && (
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Remove product photo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+
+                  {/* Auto-Set Preset Picture Button */}
                   <button
                     type="button"
                     onClick={handleAutoDetectImage}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Auto-match picture based on product name"
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Auto-match picture based on product category"
                   >
                     <Wand2 className="w-3.5 h-3.5 text-brand-600" />
-                    <span>Auto-Set</span>
+                    <span>Auto Preset</span>
                   </button>
                 </div>
               </div>
@@ -737,18 +723,25 @@ export const Products: React.FC = () => {
                   className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 border-brand-500 shadow-md bg-white shrink-0 group cursor-pointer"
                   title="Click to Upload / Change Photo"
                 >
-                  <img
-                    src={image || getAutoProductImage(name, nameTamil, category)}
-                    alt={name || 'Product Preview'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = getAutoProductImage(name, nameTamil, category);
-                    }}
-                  />
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={name || 'Product Preview'}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getAutoProductImage(name, nameTamil, category);
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 p-2 text-center">
+                      <Camera className="w-8 h-8 text-slate-300 mb-1" />
+                      <span className="text-[10px] font-semibold">No Photo</span>
+                    </div>
+                  )}
 
                   {/* Hover upload prompt overlay */}
                   <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2 text-center backdrop-blur-2xs">
-                    <Upload className="w-5 h-5 mb-1 animate-bounce" />
+                    <UploadCloud className="w-6 h-6 mb-1 text-white animate-bounce" />
                     <span className="text-[10px] font-bold leading-tight">Change / Upload Photo</span>
                   </div>
 
@@ -756,33 +749,20 @@ export const Products: React.FC = () => {
                   <div className="absolute inset-x-0 bottom-0 bg-slate-900/85 backdrop-blur-xs py-0.5 text-center pointer-events-none">
                     <span className="text-[9px] font-bold text-white uppercase tracking-wider">
                       {isCustomUploaded
-                        ? '📁 Uploaded'
-                        : webImageResults.includes(image)
-                        ? '🌐 Google Web'
+                        ? '📸 Uploaded'
                         : isImageManuallyEdited
                         ? 'Selected'
-                        : '✨ Auto Set'}
+                        : '✨ Preset'}
                     </span>
                   </div>
                 </div>
 
-                {/* Suggestions & Preset / Web Image Picker */}
+                {/* Upload Guide & Suggested Category Presets */}
                 <div className="flex-1 space-y-2.5 w-full">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                      {isSearchingWebImage ? (
-                        <span className="text-blue-600 flex items-center gap-1">
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                          <span>Searching Google & Web product images...</span>
-                        </span>
-                      ) : webImageResults.length > 0 ? (
-                        <span className="text-blue-700 font-extrabold flex items-center gap-1">
-                          <Globe className="w-3 h-3 text-blue-600" />
-                          <span>Google & Web Images found for "{name || nameTamil}":</span>
-                        </span>
-                      ) : (
-                        <span>Suggested Matching Pictures (Click to select):</span>
-                      )}
+                      <ImageIcon className="w-3.5 h-3.5 text-brand-600" />
+                      <span>Suggested Category Presets (Click to choose):</span>
                     </span>
                     <button
                       type="button"
@@ -793,66 +773,35 @@ export const Products: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Image Thumbnails Grid (Web search results OR Preset library) */}
+                  {/* Suggested Presets Grid */}
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                    {webImageResults.length > 0
-                      ? webImageResults.slice(0, 6).map((webUrl, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              handleSelectPreset(webUrl);
-                              setIsCustomUploaded(false);
-                            }}
-                            className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
-                              image === webUrl
-                                ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
-                                : 'border-slate-200 hover:border-brand-400'
-                            }`}
-                            title={`Web Image Result ${idx + 1}`}
-                          >
-                            <img
-                              src={webUrl}
-                              alt={`Web result ${idx + 1}`}
-                              className="w-full h-full object-cover rounded-lg"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                            {image === webUrl && (
-                              <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
-                                <Check className="w-2.5 h-2.5" />
-                              </div>
-                            )}
-                          </button>
-                        ))
-                      : getSuggestedImages(name, nameTamil, category).map((preset, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              handleSelectPreset(preset.imageUrl);
-                              setIsCustomUploaded(false);
-                            }}
-                            className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
-                              image === preset.imageUrl
-                                ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
-                                : 'border-slate-200 hover:border-brand-400'
-                            }`}
-                            title={preset.alt}
-                          >
-                            <img
-                              src={preset.imageUrl}
-                              alt={preset.alt}
-                              className="w-full h-full object-cover rounded-lg"
-                            />
-                            {image === preset.imageUrl && (
-                              <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
-                                <Check className="w-2.5 h-2.5" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                    {getSuggestedImages(name, nameTamil, category).map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          handleSelectPreset(preset.imageUrl);
+                          setIsCustomUploaded(false);
+                        }}
+                        className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 bg-white aspect-square group cursor-pointer ${
+                          image === preset.imageUrl
+                            ? 'border-brand-600 ring-2 ring-brand-500/20 scale-105'
+                            : 'border-slate-200 hover:border-brand-400'
+                        }`}
+                        title={preset.alt}
+                      >
+                        <img
+                          src={preset.imageUrl}
+                          alt={preset.alt}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        {image === preset.imageUrl && (
+                          <div className="absolute top-1 right-1 bg-brand-600 text-white rounded-full p-0.5 shadow-xs">
+                            <Check className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </button>
+                    ))}
                   </div>
 
                   {showCustomImageInput && (
@@ -872,7 +821,7 @@ export const Products: React.FC = () => {
                   )}
 
                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <span>💡 <strong>Google Image Search</strong> automatically collects real packshot pictures as you type. Tap <strong>Upload Photo</strong> for custom device files.</span>
+                    <span>💡 Tap <strong>Upload Photo</strong> to choose a picture or take a live photo from your phone camera / gallery. You can also drag & drop photos here.</span>
                   </p>
                 </div>
               </div>
