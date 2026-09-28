@@ -134,7 +134,21 @@ export const Products: React.FC = () => {
     setCRate(p.c_rate || p.selling_price);
     setStock(p.stock);
     setMinimumStock(p.minimum_stock);
-    setUnit(p.unit);
+    const loadedUnit = p.unit || 'pcs';
+    const canonicalUnits: Record<string, string> = {
+      pcs: 'pcs',
+      kg: 'kg',
+      g: 'g',
+      l: 'L',
+      ml: 'ml',
+      packet: 'packet',
+      bag: 'Bag',
+      bottle: 'bottle',
+      box: 'box',
+      charam: 'Charam',
+      'சரம்': 'Charam',
+    };
+    setUnit(canonicalUnits[loadedUnit.toLowerCase()] || loadedUnit);
     setImage(p.image || getAutoProductImage(p.name, p.name_tamil, p.category));
     setIsImageManuallyEdited(Boolean(p.image));
     setIsCustomUploaded(Boolean(p.image?.startsWith('data:')));
@@ -861,6 +875,10 @@ export const Products: React.FC = () => {
                 <option value="Bag">Bag</option>
                 <option value="bottle">Bottle</option>
                 <option value="box">Box</option>
+                <option value="Charam">Charam (சரம்)</option>
+                {unit && !['pcs', 'kg', 'g', 'L', 'ml', 'packet', 'Bag', 'bottle', 'box', 'Charam'].includes(unit) && (
+                  <option value={unit}>{unit}</option>
+                )}
               </select>
             </div>
 

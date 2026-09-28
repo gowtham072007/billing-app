@@ -23,6 +23,8 @@ const DECIMAL_UNITS = new Set([
   'm',
   'sqft',
   'yard',
+  'charam',
+  'சரம்',
 ]);
 
 /**
@@ -59,11 +61,13 @@ export const UNIT_TAMIL_MAP: Record<string, string> = {
   bottle: 'பாட்டில்',
   bottles: 'பாட்டில்',
 
-  // Piece & Package
+  // Piece, Package & Flower Garland (Charam)
   pcs: 'பீஸ்',
   pc: 'பீஸ்',
   piece: 'பீஸ்',
   pieces: 'பீஸ்',
+  charam: 'சரம்',
+  'சரம்': 'சரம்',
   nos: 'எண்',
   no: 'எண்',
   number: 'எண்',
@@ -182,6 +186,18 @@ export function getQtyPresets(unit?: string): Array<{ label: string; value: numb
       { label: '2 m', value: 2 },
       { label: '5 m', value: 5 },
       { label: '10 m', value: 10 },
+    ];
+  }
+
+  if (clean === 'charam' || clean === 'சரம்') {
+    return [
+      { label: '½ Charam (0.5)', value: 0.5 },
+      { label: '1 Charam', value: 1 },
+      { label: '1.5 Charam', value: 1.5 },
+      { label: '2 Charam', value: 2 },
+      { label: '3 Charam', value: 3 },
+      { label: '5 Charam', value: 5 },
+      { label: '10 Charam', value: 10 },
     ];
   }
 
