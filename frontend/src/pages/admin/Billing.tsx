@@ -84,6 +84,7 @@ export const Billing: React.FC = () => {
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
   const [isUpiQrModalOpen, setIsUpiQrModalOpen] = useState<boolean>(false);
+  const [upiQrModalAmount, setUpiQrModalAmount] = useState<number>(0);
   const [isCameraScannerOpen, setIsCameraScannerOpen] = useState<boolean>(false);
   const [barcodeToast, setBarcodeToast] = useState<{ text: string; isError?: boolean } | null>(null);
 
@@ -951,7 +952,10 @@ export const Billing: React.FC = () => {
             onPaymentMethodChange={method => updateActiveSection(s => ({ ...s, paymentMethod: method }))}
             onPaymentReferenceChange={ref => updateActiveSection(s => ({ ...s, paymentReference: ref }))}
             onCompleteBill={handleCompleteBill}
-            onOpenUpiQr={() => setIsUpiQrModalOpen(true)}
+            onOpenUpiQr={(amt) => {
+              setUpiQrModalAmount(amt);
+              setIsUpiQrModalOpen(true);
+            }}
           />
         </div>
       </div>
@@ -977,7 +981,7 @@ export const Billing: React.FC = () => {
       <UPIQrModal
         isOpen={isUpiQrModalOpen}
         onClose={() => setIsUpiQrModalOpen(false)}
-        amount={currentGrandTotal}
+        amount={upiQrModalAmount > 0 ? upiQrModalAmount : currentGrandTotal}
         settings={settings}
         onPaid={() => setIsUpiQrModalOpen(false)}
       />

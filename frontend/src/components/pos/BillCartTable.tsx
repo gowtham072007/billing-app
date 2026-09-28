@@ -281,7 +281,7 @@ interface BillCartTableProps {
   onPaymentMethodChange: (method: 'cash' | 'upi' | 'card' | 'other') => void;
   onPaymentReferenceChange: (ref: string) => void;
   onCompleteBill: (printImmediate?: boolean) => void;
-  onOpenUpiQr: () => void;
+  onOpenUpiQr: (amount: number) => void;
 }
 
 export const BillCartTable: React.FC<BillCartTableProps> = ({
@@ -326,6 +326,26 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
   const taxableAmount = Math.max(0, subtotal - discountAmount);
   const taxAmount = (taxableAmount * (taxPercentage || 0)) / 100;
   const grandTotal = Math.round(taxableAmount + taxAmount);
+
+  // UPI Custom Payment Amount State
+  const [upiAmountInput, setUpiAmountInput] = useState<string>(() => (grandTotal > 0 ? String(grandTotal) : ''));
+  const [isUpiAmountUserEdited, setIsUpiAmountUserEdited] = useState<boolean>(false);
+
+  // Sync UPI amount input with Grand Total when grandTotal changes (if cashier hasn't manually overridden it)
+  useEffect(() => {
+    if (!isUpiAmountUserEdited) {
+      setUpiAmountInput(grandTotal > 0 ? String(grandTotal) : '');
+    }
+  }, [grandTotal, isUpiAmountUserEdited]);
+
+  // Reset custom edit flag when cart items change or bill is cleared
+  useEffect(() => {
+    setIsUpiAmountUserEdited(false);
+    setUpiAmountInput(grandTotal > 0 ? String(grandTotal) : '');
+  }, [items.length]);
+
+  const parsedUpiAmount = parseFloat(upiAmountInput);
+  const isUpiAmountValid = !isNaN(parsedUpiAmount) && parsedUpiAmount > 0;
 
   // Payment & summary section visibility toggle (persisted in sessionStorage during current POS session)
   const [isPaymentVisible, setIsPaymentVisible] = useState<boolean>(() => {
@@ -644,21 +664,63 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
               })}
             </div>
 
-            {/* UPI Quick QR Trigger if UPI selected */}
+            {/* UPI Payment Amount & Show QR Trigger */}
             {paymentMethod === 'upi' && (
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-xs">
-                <span className="text-emerald-800 font-semibold flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5" />
-                  Scan to pay ₹{grandTotal}
-                </span>
-                <button
-                  type="button"
-                  onClick={onOpenUpiQr}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 shadow-sm transition-colors"
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>Show QR Code</span>
-                </button>
+              <div className="bg-emerald-50/90 border border-emerald-200 p-3 rounded-2xl space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide text-[11px]">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>UPI Payment Amount</span>
+                  </label>
+                  {grandTotal > 0 && Math.abs((parsedUpiAmount || 0) - grandTotal) > 0.001 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUpiAmountInput(String(grandTotal));
+                        setIsUpiAmountUserEdited(false);
+                      }}
+                      className="text-[10px] font-bold text-emerald-700 hover:text-emerald-950 underline cursor-pointer"
+                    >
+                      Fill Grand Total (₹{grandTotal.toFixed(2)})
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 font-mono text-xs select-none">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      value={upiAmountInput}
+                      onChange={e => {
+                        setUpiAmountInput(e.target.value);
+                        setIsUpiAmountUserEdited(true);
+                      }}
+                      placeholder="0.00"
+                      className="w-full pl-7 pr-3 py-2 bg-white border border-emerald-300 rounded-xl font-mono text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all shadow-2xs"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!isUpiAmountValid}
+                    onClick={() => onOpenUpiQr(parsedUpiAmount)}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[11px] flex items-center gap-1.5 shadow-sm transition-all active:scale-[0.98] shrink-0 cursor-pointer"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>Show QR Code</span>
+                  </button>
+                </div>
+
+                {!isUpiAmountValid && (
+                  <p className="text-[10px] text-amber-800 font-medium">
+                    ⚠️ Enter a valid amount greater than ₹0 to enable QR code.
+                  </p>
+                )}
               </div>
             )}
           </div>
