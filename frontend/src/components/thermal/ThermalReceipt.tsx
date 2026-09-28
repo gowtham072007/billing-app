@@ -382,11 +382,17 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         className="text-center pt-2 pb-1 mt-2 border-t border-dashed border-black space-y-1"
         style={{ fontSize: '10.5px' }}
       >
-        <p className="font-bold whitespace-pre-line leading-tight">
+        <div
+          className="font-bold whitespace-pre-line leading-relaxed text-center break-words"
+          style={{
+            fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', 'Latha', sans-serif",
+            wordBreak: 'break-word',
+          }}
+        >
           {footerMessage}
-        </p>
+        </div>
         <p
-          className="font-mono text-neutral-700 tracking-wide"
+          className="font-mono text-neutral-700 tracking-wide text-center"
           style={{ fontSize: '9px', marginTop: '3px' }}
         >
           *** QuickBill POS System ***

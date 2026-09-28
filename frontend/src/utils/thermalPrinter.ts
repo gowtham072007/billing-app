@@ -221,7 +221,14 @@ export function formatEscPosReceipt(bill: Bill, items: BillItem[], settings?: Pa
 
   // Center alignment for footer
   chunks.push(ESC, 0x61, 0x01);
-  chunks.push(...encoder.encode(`${settings?.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.'}\n`));
+  const footerRaw = (settings?.receipt_footer !== undefined && settings?.receipt_footer !== null && settings?.receipt_footer !== '')
+    ? settings.receipt_footer
+    : 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.';
+  
+  const footerLines = footerRaw.split('\n');
+  footerLines.forEach(line => {
+    chunks.push(...encoder.encode(`${line}\n`));
+  });
   chunks.push(...encoder.encode('*** QuickBill POS System ***\n\n'));
 
   // Paper feed & Cut (GS V 66 0)

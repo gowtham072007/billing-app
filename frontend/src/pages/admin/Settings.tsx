@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Printer, CheckCircle2, Store, QrCode } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { ThermalReceipt } from '../../components/thermal/ThermalReceipt';
@@ -14,7 +14,7 @@ export const Settings: React.FC = () => {
     shop_phone: settings.shop_phone || '+91 94862 85112',
     shop_email: settings.shop_email || '',
     shop_gstin: settings.shop_gstin || '33CKNPA2440R1ZZ',
-    receipt_footer: settings.receipt_footer || 'நன்றி! மீண்டும் வருக. / THANK YOU! VISIT AGAIN.',
+    receipt_footer: settings.receipt_footer || 'நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.',
     default_tax_rate: settings.default_tax_rate || '0',
     currency_symbol: settings.currency_symbol || '₹',
     thermal_paper_width: settings.thermal_paper_width || '100mm',
@@ -22,6 +22,26 @@ export const Settings: React.FC = () => {
     upi_payee_name: settings.upi_payee_name || 'VILMANI TRADERS',
     bank_name: settings.bank_name || 'Indian Overseas Bank',
   });
+
+  useEffect(() => {
+    if (settings && Object.keys(settings).length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        shop_name: settings.shop_name ?? prev.shop_name,
+        shop_address: settings.shop_address ?? prev.shop_address,
+        shop_phone: settings.shop_phone ?? prev.shop_phone,
+        shop_email: settings.shop_email ?? prev.shop_email,
+        shop_gstin: settings.shop_gstin ?? prev.shop_gstin,
+        receipt_footer: settings.receipt_footer ?? prev.receipt_footer,
+        default_tax_rate: settings.default_tax_rate ?? prev.default_tax_rate,
+        currency_symbol: settings.currency_symbol ?? prev.currency_symbol,
+        thermal_paper_width: settings.thermal_paper_width ?? prev.thermal_paper_width,
+        upi_id: settings.upi_id ?? prev.upi_id,
+        upi_payee_name: settings.upi_payee_name ?? prev.upi_payee_name,
+        bank_name: settings.bank_name ?? prev.bank_name,
+      }));
+    }
+  }, [settings]);
 
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -203,14 +223,24 @@ export const Settings: React.FC = () => {
             </h3>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Receipt Footer Message</label>
-              <input
-                type="text"
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  Receipt Footer Message (Multilingual / Multi-line)
+                </label>
+                <span className="text-[10px] text-slate-400">
+                  Each new line prints on a separate line • Center-aligned
+                </span>
+              </div>
+              <textarea
+                rows={4}
                 value={formData.receipt_footer}
                 onChange={e => handleChange('receipt_footer', e.target.value)}
-                placeholder="Thank You! Visit Again."
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none"
+                placeholder={`நன்றி! மீண்டும் வருக.\nTHANK YOU! VISIT AGAIN.\nGoods once sold cannot be returned.`}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-brand-500 outline-none font-medium leading-relaxed resize-y"
               />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Supports English & Tamil text. Line breaks are preserved exactly on printed thermal receipts.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
