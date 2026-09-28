@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Bill, BillItem, ShopSettings } from '../../types';
 import { formatPrintBillQty, getTamilUnit } from '../../utils/qtyHelper';
-import { buildUpiPaymentUri, generateUpiQrDataUrl, isValidUpiId } from '../../utils/upiHelper';
 
 interface ThermalReceiptProps {
   bill: Bill;
@@ -50,35 +49,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   // Calculate total items count and total quantity
   const totalItemCount = items.length;
   const totalQuantityCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-
-  // Generate UPI QR Data URL for receipt
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-
-  useEffect(() => {
-    let isCancelled = false;
-    async function loadQr() {
-      if (settings?.upi_id && isValidUpiId(settings.upi_id) && settings.print_upi_qr !== 'false') {
-        const uri = buildUpiPaymentUri({
-          upiId: settings.upi_id,
-          payeeName: settings.upi_payee_name || settings.shop_name,
-          amount: Number(bill.grand_total) || undefined,
-          billNumber: bill.bill_number,
-        });
-        try {
-          const url = await generateUpiQrDataUrl(uri, { width: 160, margin: 0 });
-          if (!isCancelled) setQrDataUrl(url);
-        } catch (err) {
-          if (!isCancelled) setQrDataUrl('');
-        }
-      } else {
-        if (!isCancelled) setQrDataUrl('');
-      }
-    }
-    loadQr();
-    return () => {
-      isCancelled = true;
-    };
-  }, [settings?.upi_id, settings?.upi_payee_name, settings?.shop_name, settings?.print_upi_qr, bill.grand_total, bill.bill_number]);
 
   // 4-inch Thermal Paper Layout (100mm roll, ~96mm printable width)
   const containerWidthStyle = { width: '96mm', maxWidth: '100mm' };
@@ -406,30 +376,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           </div>
         )}
 
-        {/* Dynamic UPI Payment QR Code */}
-        {settings?.upi_id && qrDataUrl && settings.print_upi_qr !== 'false' && (
-          <div className="text-center py-2 my-1 border-t border-dashed border-black">
-            <p className="font-bold text-[10px] uppercase tracking-tight">
-              Scan & Pay via UPI (GPay / PhonePe / Paytm)
-            </p>
-            <div className="inline-block p-1 bg-white border border-black rounded my-1">
-              <img
-                src={qrDataUrl}
-                alt="UPI Payment QR Code"
-                className="w-28 h-28 mx-auto"
-                style={{ imageRendering: 'pixelated' }}
-              />
-            </div>
-            <p className="font-mono text-[9px] font-bold">
-              UPI: {settings.upi_id}
-            </p>
-            {settings.upi_payee_name && (
-              <p className="text-[8.5px] font-medium text-neutral-800">
-                Payee: {settings.upi_payee_name}
-              </p>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 6. FOOTER */}
