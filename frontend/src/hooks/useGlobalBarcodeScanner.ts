@@ -22,6 +22,8 @@ export function useGlobalBarcodeScanner({
 }: UseGlobalBarcodeScannerOptions) {
   const bufferRef = useRef<Array<{ char: string; time: number }>>([]);
   const timerRef = useRef<any>(null);
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
 
   useEffect(() => {
     if (!enabled) return;
@@ -76,7 +78,7 @@ export function useGlobalBarcodeScanner({
                 }
               }
 
-              onScan(rawCode);
+              onScanRef.current(rawCode);
             }
             return;
           }
@@ -112,5 +114,5 @@ export function useGlobalBarcodeScanner({
       window.removeEventListener('keydown', handleKeyDown, true);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [enabled, onScan, minChars, maxIntervalMs]);
+  }, [enabled, minChars, maxIntervalMs]);
 }

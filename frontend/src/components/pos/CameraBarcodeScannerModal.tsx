@@ -61,6 +61,9 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     }
   }, []);
 
+  const onScanRef = useRef(onScan);
+  onScanRef.current = onScan;
+
   // Process detected barcode string
   const handleBarcodeDetected = useCallback(async (rawCode: string) => {
     if (!rawCode || !rawCode.trim()) return;
@@ -77,7 +80,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     setIsProcessing(true);
 
     try {
-      const success = await onScan(cleanCode);
+      const success = await onScanRef.current(cleanCode);
 
       if (success) {
         posSounds.playBeepSuccess();
@@ -107,7 +110,7 @@ export const CameraBarcodeScannerModal: React.FC<CameraBarcodeScannerModalProps>
     } finally {
       setIsProcessing(false);
     }
-  }, [onScan, autoCloseOnScan, onClose, stopCamera]);
+  }, [autoCloseOnScan, onClose, stopCamera]);
 
   // Start Camera Stream
   const startCamera = useCallback(async () => {

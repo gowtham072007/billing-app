@@ -45,13 +45,36 @@ export const Billing: React.FC = () => {
   const editBillIdParam = searchParams.get('editBillId');
   const [editingBill, setEditingBill] = useState<{ id: number; bill_number: string } | null>(null);
 
-  // 10 Section Billing State
+  // 10 Section Billing State with sessionStorage persistence
+  const getInitialActiveSectionId = (): number => {
+    try {
+      const saved = sessionStorage.getItem('pos_active_section_id');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (val >= 1 && val <= 10) return val;
+      }
+    } catch {}
+    return 1;
+  };
+
   const [sections, setSections] = useState<BillSectionData[]>(() =>
     Array.from({ length: 10 }, (_, i) =>
       createEmptySection(i + 1, Number(settings.default_tax_rate) || 0)
     )
   );
-  const [activeSectionId, setActiveSectionId] = useState<number>(1);
+  const [activeSectionId, setActiveSectionIdState] = useState<number>(getInitialActiveSectionId);
+  const activeSectionIdRef = useRef<number>(activeSectionId);
+  activeSectionIdRef.current = activeSectionId;
+
+  const setActiveSectionId = useCallback((id: number) => {
+    const validId = Math.max(1, Math.min(10, id));
+    setActiveSectionIdState(validId);
+    activeSectionIdRef.current = validId;
+    try {
+      sessionStorage.setItem('pos_active_section_id', String(validId));
+    } catch {}
+  }, []);
+
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Ref to prevent echo emission when applying incoming remote device updates
@@ -72,14 +95,15 @@ export const Billing: React.FC = () => {
   // Active Section Pointer
   const activeSection = sections.find(s => s.id === activeSectionId) || sections[0];
 
-  // Helper to update active section state
+  // Helper to update active section state - always dynamically targets the currently active section
   const updateActiveSection = useCallback(
     (updater: (prevSec: BillSectionData) => BillSectionData) => {
-      setSections(prev =>
-        prev.map(s => (s.id === activeSectionId ? updater(s) : s))
-      );
+      setSections(prev => {
+        const currentActiveId = activeSectionIdRef.current;
+        return prev.map(s => (s.id === currentActiveId ? updater(s) : s));
+      });
     },
-    [activeSectionId]
+    []
   );
 
   // Synchronize active cart state to all connected devices in real time
@@ -442,147 +466,165 @@ export const Billing: React.FC = () => {
     }));
   };
 
-  // Add Product to Active Section Bill Cart
-  const handleAddProduct = (
-    product: Product,
-    quantity: number = 1,
-    customPrice?: number,
-    itemRateType: 'c_rate' | 'w_rate' = activeSection.rateMode
-  ) => {
-    if (product.stock <= 0) {
-      setBarcodeToast({ text: `⚠️ "${product.name}" is OUT OF STOCK!`, isError: true });
-      setTimeout(() => setBarcodeToast(null), 3500);
-      return;
-    }
+  // Add Product to Active Section Bill Cart (or specific target section)
+  const handleAddProduct = useCallback(
+    (
+      product: Product,
+      quantity: number = 1,
+      customPrice?: number,
+      itemRateType?: 'c_rate' | 'w_rate',
+      targetSectionId?: number
+    ) => {
+      const currentSectionId = targetSectionId || activeSectionIdRef.current;
 
-    const cPrice = Number(product.c_rate || product.selling_price || 0);
-    const wPrice = Number(product.w_rate || product.selling_price || 0);
-    const appliedPrice = customPrice !== undefined ? customPrice : (itemRateType === 'w_rate' ? wPrice : cPrice);
-
-    updateActiveSection(prev => {
-      const existing = prev.items.find(item => item.product_id === product.id);
-
-      if (existing) {
-        const newQty = existing.quantity + quantity;
-        if (newQty > product.stock) {
-          setBarcodeToast({ text: `Cannot add more than available stock (${product.stock} ${product.unit}).`, isError: true });
-          setTimeout(() => setBarcodeToast(null), 3500);
-          return prev;
-        }
-        return {
-          ...prev,
-          items: prev.items.map(item =>
-            item.product_id === product.id
-              ? { ...item, quantity: newQty, total: newQty * item.price }
-              : item
-          ),
-        };
-      } else {
-        if (quantity > product.stock) {
-          setBarcodeToast({ text: `Quantity exceeds available stock (${product.stock} ${product.unit}).`, isError: true });
-          setTimeout(() => setBarcodeToast(null), 3500);
-          return prev;
-        }
-
-        return {
-          ...prev,
-          items: [
-            ...prev.items,
-            {
-              product_id: product.id,
-              product_name: product.name,
-              product_name_tamil: product.name_tamil || null,
-              sku: product.sku,
-              unit: product.unit,
-              quantity,
-              price: appliedPrice,
-              rate_type: itemRateType,
-              c_rate: cPrice,
-              w_rate: wPrice,
-              total: quantity * appliedPrice,
-              available_stock: product.stock,
-            },
-          ],
-        };
+      if (product.stock <= 0) {
+        setBarcodeToast({ text: `⚠️ "${product.name}" is OUT OF STOCK!`, isError: true });
+        setTimeout(() => setBarcodeToast(null), 3500);
+        return;
       }
-    });
-  };
+
+      const cPrice = Number(product.c_rate || product.selling_price || 0);
+      const wPrice = Number(product.w_rate || product.selling_price || 0);
+
+      setSections(prevSections => {
+        const targetSec = prevSections.find(s => s.id === currentSectionId) || prevSections[0];
+        const effectiveRateMode = itemRateType || targetSec?.rateMode || 'c_rate';
+        const appliedPrice = customPrice !== undefined ? customPrice : (effectiveRateMode === 'w_rate' ? wPrice : cPrice);
+
+        return prevSections.map(sec => {
+          if (sec.id !== currentSectionId) return sec;
+
+          const existing = sec.items.find(item => item.product_id === product.id);
+
+          if (existing) {
+            const newQty = existing.quantity + quantity;
+            if (newQty > product.stock) {
+              setBarcodeToast({ text: `Cannot add more than available stock (${product.stock} ${product.unit}).`, isError: true });
+              setTimeout(() => setBarcodeToast(null), 3500);
+              return sec;
+            }
+            return {
+              ...sec,
+              items: sec.items.map(item =>
+                item.product_id === product.id
+                  ? { ...item, quantity: newQty, total: Math.round(newQty * item.price * 100) / 100 }
+                  : item
+              ),
+            };
+          } else {
+            if (quantity > product.stock) {
+              setBarcodeToast({ text: `Quantity exceeds available stock (${product.stock} ${product.unit}).`, isError: true });
+              setTimeout(() => setBarcodeToast(null), 3500);
+              return sec;
+            }
+
+            return {
+              ...sec,
+              items: [
+                ...sec.items,
+                {
+                  product_id: product.id,
+                  product_name: product.name,
+                  product_name_tamil: product.name_tamil || null,
+                  sku: product.sku,
+                  unit: product.unit,
+                  quantity,
+                  price: appliedPrice,
+                  rate_type: effectiveRateMode,
+                  c_rate: cPrice,
+                  w_rate: wPrice,
+                  total: Math.round(quantity * appliedPrice * 100) / 100,
+                  available_stock: product.stock,
+                },
+              ],
+            };
+          }
+        });
+      });
+    },
+    []
+  );
 
   // Barcode / SKU Scan Handler with POS Sound feedback, multiplier parsing (e.g. 5*SUGR or SUGR*5) & non-blocking toast
-  const handleBarcodeScan = async (code: string): Promise<boolean> => {
-    if (!code || !code.trim()) return false;
+  const handleBarcodeScan = useCallback(
+    async (code: string, targetSectionId?: number): Promise<boolean> => {
+      if (!code || !code.trim()) return false;
+      const currentSectionId = targetSectionId || activeSectionIdRef.current;
 
-    let rawCode = code.trim();
-    let qtyMultiplier = 1;
+      let rawCode = code.trim();
+      let qtyMultiplier = 1;
 
-    // Support typing quantity multiplier directly e.g. "5*SUGR001" or "2.5*RICE" or "SUGR001*3"
-    if (rawCode.includes('*')) {
-      const parts = rawCode.split('*');
-      if (parts.length === 2) {
-        const p0 = parseFloat(parts[0]);
-        const p1 = parseFloat(parts[1]);
-        if (!isNaN(p0) && p0 > 0 && isNaN(p1)) {
-          qtyMultiplier = Math.round(p0 * 1000) / 1000;
-          rawCode = parts[1].trim();
-        } else if (isNaN(p0) && !isNaN(p1) && p1 > 0) {
-          qtyMultiplier = Math.round(p1 * 1000) / 1000;
-          rawCode = parts[0].trim();
+      // Support typing quantity multiplier directly e.g. "5*SUGR001" or "2.5*RICE" or "SUGR001*3"
+      if (rawCode.includes('*')) {
+        const parts = rawCode.split('*');
+        if (parts.length === 2) {
+          const p0 = parseFloat(parts[0]);
+          const p1 = parseFloat(parts[1]);
+          if (!isNaN(p0) && p0 > 0 && isNaN(p1)) {
+            qtyMultiplier = Math.round(p0 * 1000) / 1000;
+            rawCode = parts[1].trim();
+          } else if (isNaN(p0) && !isNaN(p1) && p1 > 0) {
+            qtyMultiplier = Math.round(p1 * 1000) / 1000;
+            rawCode = parts[0].trim();
+          }
         }
       }
-    }
 
-    const cleanCode = rawCode.toUpperCase();
-    const cleanNumeric = cleanCode.replace(/^0+/, '');
+      const cleanCode = rawCode.toUpperCase();
+      const cleanNumeric = cleanCode.replace(/^0+/, '');
 
-    // 1. Check local product cache
-    const localMatch = products.find(p => {
-      const pSku = (p.sku || '').trim().toUpperCase();
-      const pBarcode = (p.barcode || '').trim().toUpperCase();
-      return (
-        pSku === cleanCode ||
-        pBarcode === cleanCode ||
-        (cleanNumeric && pBarcode === cleanNumeric) ||
-        (cleanNumeric && pSku === cleanNumeric)
-      );
-    });
+      // 1. Check local product cache
+      const catalog = productsRef.current.length > 0 ? productsRef.current : products;
+      const localMatch = catalog.find(p => {
+        const pSku = (p.sku || '').trim().toUpperCase();
+        const pBarcode = (p.barcode || '').trim().toUpperCase();
+        return (
+          pSku === cleanCode ||
+          pBarcode === cleanCode ||
+          (cleanNumeric && pBarcode === cleanNumeric) ||
+          (cleanNumeric && pSku === cleanNumeric)
+        );
+      });
 
-    if (localMatch) {
-      if (localMatch.stock <= 0) {
-        posSounds.playBeepError();
-        setBarcodeToast({ text: `⚠️ "${localMatch.name}" is OUT OF STOCK!`, isError: true });
-        setTimeout(() => setBarcodeToast(null), 3500);
-        return false;
-      }
-      posSounds.playBeepSuccess();
-      handleAddProduct(localMatch, qtyMultiplier);
-      setBarcodeToast({ text: `✓ Added (${qtyMultiplier} ${localMatch.unit}): ${localMatch.name}` });
-      setTimeout(() => setBarcodeToast(null), 2500);
-      return true;
-    }
-
-    // 2. Try server lookup
-    try {
-      const res = await api.get<{ product: Product }>(`/products/lookup/${encodeURIComponent(cleanCode)}`);
-      if (res.product) {
-        if (res.product.stock <= 0) {
+      if (localMatch) {
+        if (localMatch.stock <= 0) {
           posSounds.playBeepError();
-          setBarcodeToast({ text: `⚠️ "${res.product.name}" is OUT OF STOCK!`, isError: true });
+          setBarcodeToast({ text: `⚠️ "${localMatch.name}" is OUT OF STOCK!`, isError: true });
           setTimeout(() => setBarcodeToast(null), 3500);
           return false;
         }
         posSounds.playBeepSuccess();
-        handleAddProduct(res.product, qtyMultiplier);
-        setBarcodeToast({ text: `✓ Added (${qtyMultiplier} ${res.product.unit}): ${res.product.name}` });
+        handleAddProduct(localMatch, qtyMultiplier, undefined, undefined, currentSectionId);
+        setBarcodeToast({ text: `✓ Added to S${currentSectionId} (${qtyMultiplier} ${localMatch.unit}): ${localMatch.name}` });
         setTimeout(() => setBarcodeToast(null), 2500);
         return true;
       }
-    } catch {}
 
-    posSounds.playBeepError();
-    setBarcodeToast({ text: `✕ No product found for Barcode / SKU "${cleanCode}"`, isError: true });
-    setTimeout(() => setBarcodeToast(null), 3500);
-    return false;
-  };
+      // 2. Try server lookup
+      try {
+        const res = await api.get<{ product: Product }>(`/products/lookup/${encodeURIComponent(cleanCode)}`);
+        if (res.product) {
+          if (res.product.stock <= 0) {
+            posSounds.playBeepError();
+            setBarcodeToast({ text: `⚠️ "${res.product.name}" is OUT OF STOCK!`, isError: true });
+            setTimeout(() => setBarcodeToast(null), 3500);
+            return false;
+          }
+          posSounds.playBeepSuccess();
+          handleAddProduct(res.product, qtyMultiplier, undefined, undefined, currentSectionId);
+          setBarcodeToast({ text: `✓ Added to S${currentSectionId} (${qtyMultiplier} ${res.product.unit}): ${res.product.name}` });
+          setTimeout(() => setBarcodeToast(null), 2500);
+          return true;
+        }
+      } catch {}
+
+      posSounds.playBeepError();
+      setBarcodeToast({ text: `✕ No product found for Barcode / SKU "${cleanCode}"`, isError: true });
+      setTimeout(() => setBarcodeToast(null), 3500);
+      return false;
+    },
+    [products, handleAddProduct]
+  );
 
   // Global Hardware USB / Bluetooth Barcode Gun Scanner
   useGlobalBarcodeScanner({
@@ -628,17 +670,20 @@ export const Billing: React.FC = () => {
   };
 
   const handleClearBill = useCallback(() => {
-    if (activeSection.items.length === 0) return;
-    if (window.confirm(`Are you sure you want to clear Section ${activeSectionId}?`)) {
-      setSections(prev =>
-        prev.map(s =>
-          s.id === activeSectionId
-            ? createEmptySection(activeSectionId, Number(settings.default_tax_rate) || 0)
+    const currentId = activeSectionIdRef.current;
+    setSections(prev => {
+      const target = prev.find(s => s.id === currentId);
+      if (!target || target.items.length === 0) return prev;
+      if (window.confirm(`Are you sure you want to clear Section ${currentId}?`)) {
+        return prev.map(s =>
+          s.id === currentId
+            ? createEmptySection(currentId, Number(settings.default_tax_rate) || 0)
             : s
-        )
-      );
-    }
-  }, [activeSection.items.length, activeSectionId, settings.default_tax_rate]);
+        );
+      }
+      return prev;
+    });
+  }, [settings.default_tax_rate]);
 
   const handleClearSection = (id: number) => {
     setSections(prev =>
@@ -652,7 +697,10 @@ export const Billing: React.FC = () => {
 
   // Complete and Submit Bill for Active Section (Supports New Bill & Edit/Update Existing Bill)
   const handleCompleteBill = async (printImmediate: boolean = false) => {
-    if (activeSection.items.length === 0) {
+    const currentActiveId = activeSectionIdRef.current;
+    const currentSec = sections.find(s => s.id === currentActiveId) || activeSection;
+
+    if (currentSec.items.length === 0) {
       setBarcodeToast({ text: 'Please add at least one product to the bill.', isError: true });
       setTimeout(() => setBarcodeToast(null), 3500);
       return;
@@ -670,22 +718,22 @@ export const Billing: React.FC = () => {
     try {
       const payload = {
         deviceId,
-        sectionId: activeSectionId,
-        customer_id: activeSection.selectedCustomer ? activeSection.selectedCustomer.id : null,
-        customer_name: activeSection.selectedCustomer ? activeSection.selectedCustomer.name : 'Walk-in Customer',
-        customer_phone: activeSection.selectedCustomer ? activeSection.selectedCustomer.phone : null,
-        items: activeSection.items.map(item => ({
+        sectionId: currentActiveId,
+        customer_id: currentSec.selectedCustomer ? currentSec.selectedCustomer.id : null,
+        customer_name: currentSec.selectedCustomer ? currentSec.selectedCustomer.name : 'Walk-in Customer',
+        customer_phone: currentSec.selectedCustomer ? currentSec.selectedCustomer.phone : null,
+        items: currentSec.items.map(item => ({
           product_id: item.product_id,
           product_name_tamil: item.product_name_tamil || null,
           quantity: item.quantity,
           price: item.price,
           rate_type: item.rate_type,
         })),
-        discount: Number(activeSection.discount) || 0,
-        discount_type: activeSection.discountType,
-        tax_percentage: Number(activeSection.taxPercentage) || 0,
-        payment_method: activeSection.paymentMethod,
-        payment_reference: activeSection.paymentReference.trim() || undefined,
+        discount: Number(currentSec.discount) || 0,
+        discount_type: currentSec.discountType,
+        tax_percentage: Number(currentSec.taxPercentage) || 0,
+        payment_method: currentSec.paymentMethod,
+        payment_reference: currentSec.paymentReference.trim() || undefined,
       };
 
       const res = editingBill
@@ -712,8 +760,8 @@ export const Billing: React.FC = () => {
       setSearchParams({});
       setSections(prev =>
         prev.map(s =>
-          s.id === activeSectionId
-            ? createEmptySection(activeSectionId, Number(settings.default_tax_rate) || 0)
+          s.id === currentActiveId
+            ? createEmptySection(currentActiveId, Number(settings.default_tax_rate) || 0)
             : s
         )
       );
@@ -784,7 +832,7 @@ export const Billing: React.FC = () => {
       // F8: Complete Bill
       if (e.key === 'F8') {
         e.preventDefault();
-        if (activeSection.items.length > 0 && !isSubmitting) {
+        if (!isSubmitting) {
           handleCompleteBill(false);
         }
       }
@@ -792,7 +840,7 @@ export const Billing: React.FC = () => {
       // F9: Complete & Print
       if (e.key === 'F9') {
         e.preventDefault();
-        if (activeSection.items.length > 0 && !isSubmitting) {
+        if (!isSubmitting) {
           handleCompleteBill(true);
         }
       }
@@ -809,7 +857,7 @@ export const Billing: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSection, isSubmitting, handleClearBill]);
+  }, [handleClearBill, isSubmitting, setActiveSectionId]);
 
   // Calculate current grand total for UPI QR
   const currentSubtotal = activeSection.items.reduce((s, i) => s + i.total, 0);
