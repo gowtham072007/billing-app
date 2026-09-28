@@ -17,6 +17,8 @@ import {
   Tag,
   ChevronDown,
   Sparkles,
+  Eye,
+  EyeOff,
   Pencil,
 } from 'lucide-react';
 import { Customer, BillItem, ShopSettings, Product } from '../../types';
@@ -345,6 +347,26 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
   const parsedUpiAmount = parseFloat(upiAmountInput);
   const isUpiAmountValid = !isNaN(parsedUpiAmount) && parsedUpiAmount > 0;
 
+  // Payment & summary section visibility toggle (persisted in localStorage across page refreshes)
+  const [isPaymentVisible, setIsPaymentVisible] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('pos_payment_section_visible');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const togglePaymentVisibility = () => {
+    setIsPaymentVisible(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('pos_payment_section_visible', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col h-auto lg:h-full overflow-visible lg:overflow-hidden pos-bill-cart-container">
       {/* Edit Mode Active Banner */}
@@ -523,199 +545,224 @@ export const BillCartTable: React.FC<BillCartTableProps> = ({
         )}
       </div>
 
-      {/* Bill Calculations & Payment Options Panel (Always Visible) */}
-      <div className="border-t border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 space-y-3 shrink-0 pos-payment-section">
-        {/* Top Bar: Section Title */}
+      {/* Bill Calculations & Payment Options Panel */}
+      <div className="border-t border-slate-200 bg-slate-50/80 p-3 sm:p-3.5 space-y-2.5 shrink-0 pos-payment-section">
+        {/* Top Bar: Section Title & Show/Hide Toggle Button */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
             <Receipt className="w-3.5 h-3.5 text-brand-600" />
             <span>Payment & Summary</span>
           </span>
+
+          <button
+            type="button"
+            onClick={togglePaymentVisibility}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 shadow-2xs transition-colors cursor-pointer"
+            title={isPaymentVisible ? "Hide Payment & Summary Section" : "Show Payment & Summary Section"}
+            aria-label={isPaymentVisible ? "Hide Payment & Summary Section" : "Show Payment & Summary Section"}
+          >
+            {isPaymentVisible ? (
+              <>
+                <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                <span>Hide</span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-3.5 h-3.5 text-brand-600" />
+                <span className="text-brand-700">Show</span>
+              </>
+            )}
+          </button>
         </div>
 
-        {/* Discount & Tax Inline Controls */}
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {/* Discount Field */}
-          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
-            <span className="text-slate-400 font-semibold text-[11px]">Disc:</span>
-            <input
-              type="number"
-              min="0"
-              value={discount || ''}
-              onChange={e => onDiscountChange(parseFloat(e.target.value) || 0)}
-              placeholder="0"
-              className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent"
-            />
-            <button
-              onClick={() => onDiscountTypeChange(discountType === 'flat' ? 'percentage' : 'flat')}
-              className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-700 uppercase"
-            >
-              {discountType === 'flat' ? '₹' : '%'}
-            </button>
-          </div>
-
-          {/* Tax % Selector */}
-          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
-            <span className="text-slate-400 font-semibold text-[11px]">Tax:</span>
-            <select
-              value={taxPercentage}
-              onChange={e => onTaxPercentageChange(Number(e.target.value))}
-              className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
-            >
-              <option value="0">0% (None)</option>
-              <option value="5">5% (GST)</option>
-              <option value="12">12% (GST)</option>
-              <option value="18">18% (GST)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Subtotal & Grand Total Breakdown */}
-        <div className="space-y-1 text-xs text-slate-600">
-          <div className="flex justify-between">
-            <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items):</span>
-            <span className="font-mono font-semibold">₹{subtotal.toFixed(2)}</span>
-          </div>
-
-          {discountAmount > 0 && (
-            <div className="flex justify-between text-emerald-600 font-medium">
-              <span>Discount applied:</span>
-              <span className="font-mono">- ₹{discountAmount.toFixed(2)}</span>
-            </div>
-          )}
-
-          {taxAmount > 0 && (
-            <div className="flex justify-between text-slate-600 font-medium">
-              <span>Tax ({taxPercentage}%):</span>
-              <span className="font-mono">+ ₹{taxAmount.toFixed(2)}</span>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-slate-900">
-            <span className="text-sm font-extrabold uppercase tracking-wide">Grand Total:</span>
-            <span className="text-2xl font-black font-mono text-emerald-700">
-              ₹{grandTotal.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Payment Method Selector */}
-        <div className="space-y-1.5 pt-1">
-          <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-            Payment Mode
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 pos-payment-buttons">
-            {[
-              { id: 'cash', label: 'Cash', icon: Banknote },
-              { id: 'upi', label: 'UPI', icon: Smartphone },
-              { id: 'card', label: 'Card', icon: CreditCard },
-              { id: 'other', label: 'Other', icon: CheckCircle },
-            ].map(pm => {
-              const Icon = pm.icon;
-              const isSelected = paymentMethod === pm.id;
-              return (
+        {/* Collapsible Content */}
+        {isPaymentVisible && (
+          <div className="space-y-3 pt-0.5">
+            {/* Discount & Tax Inline Controls */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {/* Discount Field */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-semibold text-[11px]">Disc:</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={discount || ''}
+                  onChange={e => onDiscountChange(parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent"
+                />
                 <button
-                  key={pm.id}
-                  type="button"
-                  onClick={() => onPaymentMethodChange(pm.id as any)}
-                  className={`py-2 px-1.5 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all w-full cursor-pointer ${
-                    isSelected
-                      ? 'bg-slate-900 text-white shadow-md'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                  }`}
+                  onClick={() => onDiscountTypeChange(discountType === 'flat' ? 'percentage' : 'flat')}
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-700 uppercase"
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{pm.label}</span>
+                  {discountType === 'flat' ? '₹' : '%'}
                 </button>
-              );
-            })}
-          </div>
-
-          {/* UPI Payment Amount & Show QR Trigger */}
-          {paymentMethod === 'upi' && (
-            <div className="bg-emerald-50/90 border border-emerald-200 p-3 rounded-2xl space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <label className="font-bold text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide text-[11px]">
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>UPI Payment Amount</span>
-                </label>
-                {grandTotal > 0 && Math.abs((parsedUpiAmount || 0) - grandTotal) > 0.001 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUpiAmountInput(String(grandTotal));
-                      setIsUpiAmountUserEdited(false);
-                    }}
-                    className="text-[10px] font-bold text-emerald-700 hover:text-emerald-950 underline cursor-pointer"
-                  >
-                    Fill Grand Total (₹{grandTotal.toFixed(2)})
-                  </button>
-                )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 font-mono text-xs select-none">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0.01"
-                    value={upiAmountInput}
-                    onChange={e => {
-                      setUpiAmountInput(e.target.value);
-                      setIsUpiAmountUserEdited(true);
-                    }}
-                    placeholder="0.00"
-                    className="w-full pl-7 pr-3 py-2 bg-white border border-emerald-300 rounded-xl font-mono text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all shadow-2xs"
-                  />
+              {/* Tax % Selector */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-semibold text-[11px]">Tax:</span>
+                <select
+                  value={taxPercentage}
+                  onChange={e => onTaxPercentageChange(Number(e.target.value))}
+                  className="w-full font-mono text-xs font-bold text-slate-800 outline-none bg-transparent cursor-pointer"
+                >
+                  <option value="0">0% (None)</option>
+                  <option value="5">5% (GST)</option>
+                  <option value="12">12% (GST)</option>
+                  <option value="18">18% (GST)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Subtotal & Grand Total Breakdown */}
+            <div className="space-y-1 text-xs text-slate-600">
+              <div className="flex justify-between">
+                <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items):</span>
+                <span className="font-mono font-semibold">₹{subtotal.toFixed(2)}</span>
+              </div>
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-medium">
+                  <span>Discount applied:</span>
+                  <span className="font-mono">- ₹{discountAmount.toFixed(2)}</span>
                 </div>
+              )}
 
-                <button
-                  type="button"
-                  disabled={!isUpiAmountValid}
-                  onClick={() => onOpenUpiQr(parsedUpiAmount)}
-                  className="w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] shrink-0 cursor-pointer"
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>Show QR Code</span>
-                </button>
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Tax ({taxPercentage}%):</span>
+                  <span className="font-mono">+ ₹{taxAmount.toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-slate-900">
+                <span className="text-sm font-extrabold uppercase tracking-wide">Grand Total:</span>
+                <span className="text-2xl font-black font-mono text-emerald-700">
+                  ₹{grandTotal.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div className="space-y-1.5 pt-1">
+              <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                Payment Mode
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 pos-payment-buttons">
+                {[
+                  { id: 'cash', label: 'Cash', icon: Banknote },
+                  { id: 'upi', label: 'UPI', icon: Smartphone },
+                  { id: 'card', label: 'Card', icon: CreditCard },
+                  { id: 'other', label: 'Other', icon: CheckCircle },
+                ].map(pm => {
+                  const Icon = pm.icon;
+                  const isSelected = paymentMethod === pm.id;
+                  return (
+                    <button
+                      key={pm.id}
+                      type="button"
+                      onClick={() => onPaymentMethodChange(pm.id as any)}
+                      className={`py-2 px-1.5 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all w-full cursor-pointer ${
+                        isSelected
+                          ? 'bg-slate-900 text-white shadow-md'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{pm.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {!isUpiAmountValid && (
-                <p className="text-[10px] text-amber-800 font-medium">
-                  ⚠️ Enter a valid amount greater than ₹0 to enable QR code.
-                </p>
+              {/* UPI Payment Amount & Show QR Trigger */}
+              {paymentMethod === 'upi' && (
+                <div className="bg-emerald-50/90 border border-emerald-200 p-3 rounded-2xl space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide text-[11px]">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>UPI Payment Amount</span>
+                    </label>
+                    {grandTotal > 0 && Math.abs((parsedUpiAmount || 0) - grandTotal) > 0.001 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUpiAmountInput(String(grandTotal));
+                          setIsUpiAmountUserEdited(false);
+                        }}
+                        className="text-[10px] font-bold text-emerald-700 hover:text-emerald-950 underline cursor-pointer"
+                      >
+                        Fill Grand Total (₹{grandTotal.toFixed(2)})
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-500 font-mono text-xs select-none">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.01"
+                        value={upiAmountInput}
+                        onChange={e => {
+                          setUpiAmountInput(e.target.value);
+                          setIsUpiAmountUserEdited(true);
+                        }}
+                        placeholder="0.00"
+                        className="w-full pl-7 pr-3 py-2 bg-white border border-emerald-300 rounded-xl font-mono text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 transition-all shadow-2xs"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!isUpiAmountValid}
+                      onClick={() => onOpenUpiQr(parsedUpiAmount)}
+                      className="w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[11px] flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] shrink-0 cursor-pointer"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>Show QR Code</span>
+                    </button>
+                  </div>
+
+                  {!isUpiAmountValid && (
+                    <p className="text-[10px] text-amber-800 font-medium">
+                      ⚠️ Enter a valid amount greater than ₹0 to enable QR code.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Main Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 pos-action-buttons">
-          <button
-            type="button"
-            disabled={items.length === 0 || isSubmitting}
-            onClick={() => onCompleteBill(false)}
-            className="w-full py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
-            title={editingBillNumber ? "Save & Update Bill without Print Preview [F8]" : "Complete Sale without opening Print Preview [F8]"}
-          >
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-            <span>{editingBillNumber ? 'Update Bill (F8)' : 'Complete (F8)'}</span>
-          </button>
+            {/* Main Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 pos-action-buttons">
+              <button
+                type="button"
+                disabled={items.length === 0 || isSubmitting}
+                onClick={() => onCompleteBill(false)}
+                className="w-full py-3 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
+                title={editingBillNumber ? "Save & Update Bill without Print Preview [F8]" : "Complete Sale without opening Print Preview [F8]"}
+              >
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span>{editingBillNumber ? 'Update Bill (F8)' : 'Complete (F8)'}</span>
+              </button>
 
-          <button
-            type="button"
-            disabled={items.length === 0 || isSubmitting}
-            onClick={() => onCompleteBill(true)}
-            className="w-full py-3 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-brand-600/25 transition-all active:scale-[0.98] cursor-pointer"
-            title={editingBillNumber ? "Save & Update Bill and Open Thermal Receipt Print [F9]" : "Complete Sale & Open 4-inch Thermal Receipt Print [F9]"}
-          >
-            <Printer className="w-4 h-4" />
-            <span>{editingBillNumber ? 'Update & Print (F9)' : 'Complete & Print (F9)'}</span>
-          </button>
-        </div>
+              <button
+                type="button"
+                disabled={items.length === 0 || isSubmitting}
+                onClick={() => onCompleteBill(true)}
+                className="w-full py-3 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-brand-600/25 transition-all active:scale-[0.98] cursor-pointer"
+                title={editingBillNumber ? "Save & Update Bill and Open Thermal Receipt Print [F9]" : "Complete Sale & Open 4-inch Thermal Receipt Print [F9]"}
+              >
+                <Printer className="w-4 h-4" />
+                <span>{editingBillNumber ? 'Update & Print (F9)' : 'Complete & Print (F9)'}</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
