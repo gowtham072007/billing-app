@@ -445,7 +445,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
               </div>
 
               {qrDataUrl ? (
-                <div className="py-1 flex flex-col items-center justify-center">
+                <div style={{ paddingTop: '4px', paddingBottom: '4px', textAlign: 'center' }}>
                   <img
                     src={qrDataUrl}
                     alt="UPI Payment QR Code"
@@ -462,13 +462,41 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                       backgroundColor: '#ffffff',
                     }}
                   />
-                  <div className="mt-1 space-y-0.5 text-center font-mono" style={{ fontSize: '9.5px' }}>
-                    <p className="font-bold text-black leading-tight">
-                      UPI ID: {upiId}
-                    </p>
-                    <p className="font-black text-black leading-tight">
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      marginBottom: '2px',
+                      textAlign: 'center',
+                      fontFamily: "'JetBrains Mono', Consolas, Monaco, monospace",
+                      fontSize: '9.5px',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <div
+                      style={{
+                        marginBottom: '4px',
+                        color: '#000000',
+                        lineHeight: '1.3',
+                        wordBreak: 'break-all',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <span style={{ display: 'block', fontWeight: '800' }}>UPI ID:</span>
+                      <span style={{ display: 'block', fontWeight: '700' }}>{upiId}</span>
+                    </div>
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        marginBottom: '0px',
+                        fontWeight: '900',
+                        color: '#000000',
+                        lineHeight: '1.3',
+                        textAlign: 'center',
+                      }}
+                    >
                       Amount: ₹{payableAmount.toFixed(2)}
-                    </p>
+                    </div>
                   </div>
                 </div>
               ) : (
