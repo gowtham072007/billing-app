@@ -8,7 +8,6 @@ interface ThermalReceiptProps {
   items: BillItem[];
   settings?: Partial<ShopSettings>;
   paperWidth?: '58mm' | '80mm' | '100mm';
-  scale?: number;
 }
 
 export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
@@ -16,7 +15,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   items,
   settings = {},
   paperWidth = '100mm',
-  scale = 1,
 }) => {
   const shopName = settings.shop_name || 'வில்மணி ஸ்டோர்';
   const shopAddress = settings.shop_address || 'முருகன் கோவில் தெரு ஸ்ரீவெங்கடேஸ்வரபுரம்';
@@ -93,6 +91,12 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   const totalItemCount = items.length;
   const totalQuantityCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
+  // Field-specific font sizes (Default: Product Name 14px, Rate 12px, Quantity 12px, Amount 12px)
+  const productNameSize = Math.min(24, Math.max(8, parseInt(String(settings?.bill_product_name_size || '14'), 10) || 14));
+  const rateSize = Math.min(24, Math.max(8, parseInt(String(settings?.bill_rate_size || '12'), 10) || 12));
+  const quantitySize = Math.min(24, Math.max(8, parseInt(String(settings?.bill_quantity_size || '12'), 10) || 12));
+  const amountSize = Math.min(24, Math.max(8, parseInt(String(settings?.bill_amount_size || '12'), 10) || 12));
+
   // 4-inch Thermal Paper Layout (100mm roll, ~96mm printable width)
   const containerWidthStyle = { width: '96mm', maxWidth: '100mm' };
 
@@ -109,7 +113,6 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         fontSize: '11.5px',
         color: '#000000',
         backgroundColor: '#ffffff',
-        zoom: scale !== 1 ? scale : undefined,
       }}
     >
       {/* 1. STORE HEADER */}
@@ -280,6 +283,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     style={{
                       width: '43%',
                       padding: '3px 4px',
+                      whiteSpace: 'normal',
                       wordBreak: 'break-word',
                       overflowWrap: 'break-word',
                     }}
@@ -287,7 +291,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     <span
                       className="font-bold text-black block"
                       style={{
-                        fontSize: '11px',
+                        fontSize: `${productNameSize}px`,
                         lineHeight: '1.25',
                         fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', sans-serif",
                       }}
@@ -297,7 +301,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     {secondaryName && (
                       <span
                         className="text-neutral-700 block font-normal"
-                        style={{ fontSize: '9.5px', lineHeight: '1.15' }}
+                        style={{ fontSize: `${Math.max(8, productNameSize - 3)}px`, lineHeight: '1.15' }}
                       >
                         {secondaryName}
                       </span>
@@ -307,7 +311,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                   {/* Quantity & Product Unit Measure (Tamil) */}
                   <td
                     className="text-center align-top font-mono leading-tight"
-                    style={{ width: '16%', padding: '3px 2px', fontSize: '10.5px' }}
+                    style={{ width: '16%', padding: '3px 2px', fontSize: `${quantitySize}px` }}
                   >
                     <span className="font-bold block">
                       {formatPrintBillQty(item.quantity, item.unit, item.quantity_format, item.decimal_places)}
@@ -315,7 +319,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     <span
                       className="text-neutral-900 font-bold block"
                       style={{
-                        fontSize: '9px',
+                        fontSize: `${Math.max(8, quantitySize - 2.5)}px`,
                         lineHeight: '1.2',
                         marginTop: '1.5px',
                         fontFamily: "'Noto Sans Tamil', 'Mukta Malar', 'Nirmala UI', sans-serif",
@@ -325,18 +329,18 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
                     </span>
                   </td>
 
-                  {/* Price */}
+                  {/* Price (Rate) */}
                   <td
                     className="text-right align-top font-mono"
-                    style={{ width: '15%', padding: '3px 2px', fontSize: '10.5px' }}
+                    style={{ width: '15%', padding: '3px 2px', fontSize: `${rateSize}px` }}
                   >
                     {Number(item.price).toFixed(2).replace(/\.00$/, '')}
                   </td>
 
-                  {/* Total */}
+                  {/* Total (Amount) */}
                   <td
                     className="text-right align-top font-mono font-bold"
-                    style={{ width: '18%', padding: '3px 2px', fontSize: '11px' }}
+                    style={{ width: '18%', padding: '3px 2px', fontSize: `${amountSize}px` }}
                   >
                     {Number(item.total).toFixed(2).replace(/\.00$/, '')}
                   </td>

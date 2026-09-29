@@ -23,7 +23,10 @@ const defaultSettings: ShopSettings = {
   upi_payee_name: 'VILMANI TRADERS',
   bank_name: 'Indian Overseas Bank',
   print_upi_qr: 'true',
-  enable_print_size_adjustment: 'true',
+  bill_product_name_size: '14',
+  bill_rate_size: '12',
+  bill_quantity_size: '12',
+  bill_amount_size: '12',
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);

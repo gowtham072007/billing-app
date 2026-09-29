@@ -9,6 +9,8 @@ import {
   Download,
   Smartphone,
   AlertCircle,
+  Type,
+  RotateCcw,
 } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import { ThermalReceipt } from '../../components/thermal/ThermalReceipt';
@@ -33,7 +35,10 @@ export const Settings: React.FC = () => {
     upi_payee_name: settings.upi_payee_name || 'VILMANI TRADERS',
     bank_name: settings.bank_name || 'Indian Overseas Bank',
     print_upi_qr: settings.print_upi_qr || 'true',
-    enable_print_size_adjustment: settings.enable_print_size_adjustment || 'true',
+    bill_product_name_size: settings.bill_product_name_size || '14',
+    bill_rate_size: settings.bill_rate_size || '12',
+    bill_quantity_size: settings.bill_quantity_size || '12',
+    bill_amount_size: settings.bill_amount_size || '12',
   });
 
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string>('');
@@ -94,7 +99,10 @@ export const Settings: React.FC = () => {
         upi_payee_name: settings.upi_payee_name ?? prev.upi_payee_name,
         bank_name: settings.bank_name ?? prev.bank_name,
         print_upi_qr: settings.print_upi_qr ?? prev.print_upi_qr,
-        enable_print_size_adjustment: settings.enable_print_size_adjustment ?? prev.enable_print_size_adjustment,
+        bill_product_name_size: settings.bill_product_name_size ?? prev.bill_product_name_size,
+        bill_rate_size: settings.bill_rate_size ?? prev.bill_rate_size,
+        bill_quantity_size: settings.bill_quantity_size ?? prev.bill_quantity_size,
+        bill_amount_size: settings.bill_amount_size ?? prev.bill_amount_size,
       }));
     }
   }, [settings]);
@@ -468,47 +476,178 @@ export const Settings: React.FC = () => {
               </div>
             </div>
 
-            {/* Enable Print Bill Size Adjustment Setting */}
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 p-3.5 rounded-xl border border-slate-100">
-              <div>
-                <label className="block text-xs font-bold text-slate-800">
-                  Enable Print Bill Size Adjustment
-                </label>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Allow users to increase or decrease the bill print size before printing.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+            {/* Bill Text Size Settings Section */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Type className="w-3.5 h-3.5 text-brand-600" />
+                    <span>Bill Text Size</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Configure individual font sizes for bill item fields (8px – 24px).
+                  </p>
+                </div>
                 <button
                   type="button"
-                  role="switch"
-                  aria-checked={formData.enable_print_size_adjustment !== 'false'}
-                  onClick={() =>
-                    handleChange(
-                      'enable_print_size_adjustment',
-                      formData.enable_print_size_adjustment === 'false' ? 'true' : 'false'
-                    )
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
-                    formData.enable_print_size_adjustment !== 'false' ? 'bg-brand-600' : 'bg-slate-300'
-                  }`}
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev,
+                      bill_product_name_size: '14',
+                      bill_rate_size: '12',
+                      bill_quantity_size: '12',
+                      bill_amount_size: '12',
+                    }));
+                    setIsSaved(false);
+                  }}
+                  className="text-[11px] font-bold text-slate-500 hover:text-brand-600 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                  title="Reset font sizes to default"
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      formData.enable_print_size_adjustment !== 'false' ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset Text Sizes</span>
                 </button>
-                <span
-                  className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-md ${
-                    formData.enable_print_size_adjustment !== 'false'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-slate-100 text-slate-500 border border-slate-200'
-                  }`}
-                >
-                  {formData.enable_print_size_adjustment !== 'false' ? 'ON' : 'OFF'}
-                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Product Name Font Size */}
+                <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800">Product Name</label>
+                    <span className="text-[10px] text-slate-400">Default: 14px</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_product_name_size || '14', 10) <= 8}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_product_name_size || '14', 10);
+                        handleChange('bill_product_name_size', String(Math.max(8, current - 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[46px] text-center font-mono font-bold text-xs text-slate-800 bg-white border border-slate-200 py-1 px-1.5 rounded-lg shadow-2xs">
+                      {formData.bill_product_name_size || '14'}px
+                    </span>
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_product_name_size || '14', 10) >= 24}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_product_name_size || '14', 10);
+                        handleChange('bill_product_name_size', String(Math.min(24, current + 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Rate Font Size */}
+                <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800">Rate</label>
+                    <span className="text-[10px] text-slate-400">Default: 12px</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_rate_size || '12', 10) <= 8}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_rate_size || '12', 10);
+                        handleChange('bill_rate_size', String(Math.max(8, current - 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[46px] text-center font-mono font-bold text-xs text-slate-800 bg-white border border-slate-200 py-1 px-1.5 rounded-lg shadow-2xs">
+                      {formData.bill_rate_size || '12'}px
+                    </span>
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_rate_size || '12', 10) >= 24}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_rate_size || '12', 10);
+                        handleChange('bill_rate_size', String(Math.min(24, current + 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quantity Font Size */}
+                <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800">Quantity</label>
+                    <span className="text-[10px] text-slate-400">Default: 12px</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_quantity_size || '12', 10) <= 8}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_quantity_size || '12', 10);
+                        handleChange('bill_quantity_size', String(Math.max(8, current - 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[46px] text-center font-mono font-bold text-xs text-slate-800 bg-white border border-slate-200 py-1 px-1.5 rounded-lg shadow-2xs">
+                      {formData.bill_quantity_size || '12'}px
+                    </span>
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_quantity_size || '12', 10) >= 24}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_quantity_size || '12', 10);
+                        handleChange('bill_quantity_size', String(Math.min(24, current + 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Amount Font Size */}
+                <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800">Amount</label>
+                    <span className="text-[10px] text-slate-400">Default: 12px</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_amount_size || '12', 10) <= 8}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_amount_size || '12', 10);
+                        handleChange('bill_amount_size', String(Math.max(8, current - 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[46px] text-center font-mono font-bold text-xs text-slate-800 bg-white border border-slate-200 py-1 px-1.5 rounded-lg shadow-2xs">
+                      {formData.bill_amount_size || '12'}px
+                    </span>
+                    <button
+                      type="button"
+                      disabled={parseInt(formData.bill_amount_size || '12', 10) >= 24}
+                      onClick={() => {
+                        const current = parseInt(formData.bill_amount_size || '12', 10);
+                        handleChange('bill_amount_size', String(Math.min(24, current + 1)));
+                      }}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

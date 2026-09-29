@@ -178,7 +178,10 @@ export interface ShopSettings {
   upi_payee_name?: string;
   bank_name?: string;
   print_upi_qr?: string;
-  enable_print_size_adjustment?: string;
+  bill_product_name_size?: string;
+  bill_rate_size?: string;
+  bill_quantity_size?: string;
+  bill_amount_size?: string;
 }
 
 export interface DashboardStats {
