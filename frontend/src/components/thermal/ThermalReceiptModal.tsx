@@ -4,6 +4,7 @@ import { Bill, BillItem, ShopSettings } from '../../types';
 import { ThermalReceipt } from './ThermalReceipt';
 import { Modal } from '../common/Modal';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 import {
   connectWebUsbPrinter,
   connectWebSerialPrinter,
@@ -28,12 +29,21 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   onClose,
   bill,
   items,
-  settings,
+  settings: propSettings,
   isCustomerView,
 }) => {
   const { user } = useAuth();
+  const { settings: globalSettings } = useSettings();
+  const settings = { ...globalSettings, ...propSettings };
   const isCustomer = isCustomerView ?? (user?.role === 'customer');
 
+  const isPrintSizeAdjustmentEnabled =
+    settings?.enable_print_size_adjustment === undefined ||
+    settings?.enable_print_size_adjustment === null ||
+    settings?.enable_print_size_adjustment === 'true' ||
+    String(settings?.enable_print_size_adjustment) === 'true';
+
+  const [printScale, setPrintScale] = useState<number>(100);
   const [copied, setCopied] = useState(false);
   const [connectedDeviceName, setConnectedDeviceName] = useState<string>(() => getSavedPrinterName());
   const [isEditingName, setIsEditingName] = useState(false);
@@ -277,10 +287,77 @@ ${(settings?.print_upi_qr === undefined || settings?.print_upi_qr === null || se
           </div>
         )}
 
+        {/* Print Bill Size Adjustment Controls */}
+        {isPrintSizeAdjustmentEnabled && (
+          <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 space-y-2.5 print:hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 tracking-tight">Print Bill Size</span>
+                <span className="text-[10px] font-semibold text-slate-500 bg-slate-200/70 px-1.5 py-0.5 rounded">
+                  70% – 150%
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setPrintScale(prev => Math.max(70, prev - 10))}
+                  disabled={printScale <= 70}
+                  className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                  title="Decrease print size by 10%"
+                >
+                  −
+                </button>
+                <span className="min-w-[52px] text-center font-mono font-extrabold text-xs text-brand-600 bg-brand-50 border border-brand-200/80 py-1 px-2 rounded-lg">
+                  {printScale}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPrintScale(prev => Math.min(150, prev + 10))}
+                  disabled={printScale >= 150}
+                  className="w-7 h-7 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-sm text-slate-800 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
+                  title="Increase print size by 10%"
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintScale(100)}
+                  disabled={printScale === 100}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-bold text-slate-700 transition-colors shadow-2xs cursor-pointer ml-1"
+                  title="Reset to 100%"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {/* Range Slider for Bill Print Size (70% - 150%, Step 10%) */}
+            <div className="flex items-center gap-3 pt-0.5">
+              <span className="text-[10px] font-bold text-slate-400 select-none">70%</span>
+              <input
+                type="range"
+                min={70}
+                max={150}
+                step={10}
+                value={printScale}
+                onChange={e => setPrintScale(Number(e.target.value))}
+                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+              />
+              <span className="text-[10px] font-bold text-slate-400 select-none">150%</span>
+            </div>
+          </div>
+        )}
+
         {/* 4-Inch Thermal Paper Visual Mockup */}
         <div className="bg-slate-100 p-3.5 rounded-xl flex justify-center overflow-x-auto shadow-inner max-h-80 print:bg-transparent print:p-0 print:m-0 print:max-h-none print:shadow-none print:overflow-visible">
-          <div className="bg-white p-3 shadow-md rounded-sm border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0">
-            <ThermalReceipt bill={bill} items={items} settings={settings} paperWidth="100mm" />
+          <div className="bg-white p-3 shadow-md rounded-sm border border-slate-200 print:shadow-none print:border-none print:p-0 print:m-0 transition-all duration-150">
+            <ThermalReceipt
+              bill={bill}
+              items={items}
+              settings={settings}
+              paperWidth="100mm"
+              scale={isPrintSizeAdjustmentEnabled ? printScale / 100 : 1}
+            />
           </div>
         </div>
 

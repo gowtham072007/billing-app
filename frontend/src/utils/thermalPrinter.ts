@@ -340,6 +340,7 @@ function inlineComputedStyles(source: HTMLElement, clone: HTMLElement): void {
     'vertical-align',
     'table-layout',
     'overflow', 'overflow-x', 'overflow-y',
+    'zoom', 'transform', 'transform-origin',
   ];
 
   for (const prop of properties) {

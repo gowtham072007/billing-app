@@ -32,7 +32,8 @@ async function seedDatabase() {
     ['upi_id', 'vilmanitraders1386@iob'],
     ['upi_payee_name', 'VILMANI TRADERS'],
     ['bank_name', 'Indian Overseas Bank'],
-    ['print_upi_qr', 'true']
+    ['print_upi_qr', 'true'],
+    ['enable_print_size_adjustment', 'true']
   ];
 
   for (const [k, v] of defaultSettings) {

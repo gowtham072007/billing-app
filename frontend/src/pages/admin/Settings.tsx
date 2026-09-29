@@ -33,6 +33,7 @@ export const Settings: React.FC = () => {
     upi_payee_name: settings.upi_payee_name || 'VILMANI TRADERS',
     bank_name: settings.bank_name || 'Indian Overseas Bank',
     print_upi_qr: settings.print_upi_qr || 'true',
+    enable_print_size_adjustment: settings.enable_print_size_adjustment || 'true',
   });
 
   const [qrPreviewUrl, setQrPreviewUrl] = useState<string>('');
@@ -93,6 +94,7 @@ export const Settings: React.FC = () => {
         upi_payee_name: settings.upi_payee_name ?? prev.upi_payee_name,
         bank_name: settings.bank_name ?? prev.bank_name,
         print_upi_qr: settings.print_upi_qr ?? prev.print_upi_qr,
+        enable_print_size_adjustment: settings.enable_print_size_adjustment ?? prev.enable_print_size_adjustment,
       }));
     }
   }, [settings]);
@@ -410,11 +412,11 @@ export const Settings: React.FC = () => {
             </div>
           </div>
 
-          {/* Thermal Receipt Settings Card */}
+          {/* Print / Billing Settings Card */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
               <Printer className="w-4 h-4 text-emerald-600" />
-              <span>4-inch Thermal Receipt Configurations</span>
+              <span>Print / Billing Settings</span>
             </h3>
 
             <div>
@@ -463,6 +465,50 @@ export const Settings: React.FC = () => {
                   <option value="100mm">4-inch Roll (100mm) - Recommended</option>
                   <option value="80mm">3-inch Roll (80mm Standard POS)</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Enable Print Bill Size Adjustment Setting */}
+            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 p-3.5 rounded-xl border border-slate-100">
+              <div>
+                <label className="block text-xs font-bold text-slate-800">
+                  Enable Print Bill Size Adjustment
+                </label>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Allow users to increase or decrease the bill print size before printing.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.enable_print_size_adjustment !== 'false'}
+                  onClick={() =>
+                    handleChange(
+                      'enable_print_size_adjustment',
+                      formData.enable_print_size_adjustment === 'false' ? 'true' : 'false'
+                    )
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
+                    formData.enable_print_size_adjustment !== 'false' ? 'bg-brand-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      formData.enable_print_size_adjustment !== 'false' ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span
+                  className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                    formData.enable_print_size_adjustment !== 'false'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-slate-100 text-slate-500 border border-slate-200'
+                  }`}
+                >
+                  {formData.enable_print_size_adjustment !== 'false' ? 'ON' : 'OFF'}
+                </span>
               </div>
             </div>
           </div>

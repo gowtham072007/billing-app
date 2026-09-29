@@ -8,6 +8,7 @@ interface ThermalReceiptProps {
   items: BillItem[];
   settings?: Partial<ShopSettings>;
   paperWidth?: '58mm' | '80mm' | '100mm';
+  scale?: number;
 }
 
 export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
@@ -15,6 +16,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   items,
   settings = {},
   paperWidth = '100mm',
+  scale = 1,
 }) => {
   const shopName = settings.shop_name || 'வில்மணி ஸ்டோர்';
   const shopAddress = settings.shop_address || 'முருகன் கோவில் தெரு ஸ்ரீவெங்கடேஸ்வரபுரம்';
@@ -107,6 +109,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         fontSize: '11.5px',
         color: '#000000',
         backgroundColor: '#ffffff',
+        zoom: scale !== 1 ? scale : undefined,
       }}
     >
       {/* 1. STORE HEADER */}
